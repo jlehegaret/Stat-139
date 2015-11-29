@@ -1,46 +1,119 @@
 ---
-title: "Project Proposal - Stat E139, Fall 2015 "
-author: "**Stephen Camera-Murray, Jennifer Le HÃ©garet, DesirÃ©e Koh, Elizabeth Wilson-Milne**"
+title: "Stat E-139 Project Proposal"
+author: "**Stephen Camera-Murray, Desirée Koh,  \n  
+           Jennifer Le Hégaret, Elizabeth Wilson-Milne**"
 date: "`r format(Sys.time(), '%B %d, %Y')`"
-output: word_document
+output: pdf_document
 ---
-
-Overview
-========
-Rossmann operates over 3,000 drug stores in 7 European countries. Currently, Rossmann store managers are tasked with predicting their daily sales for up to six weeks in advance. Store sales are influenced by many factors, including promotions, competition, school and state holidays, seasonality, and locality. With thousands of individual managers predicting sales based on their unique circumstances, the accuracy of results can be quite varied.
-
-Business Goal
-=============
-Enable store managers to create effective staff schedules that increase productivity and motivation by predicting 6 weeks of daily sales for 1,115 stores located across Germany. To address this challenge Rossmann decided to run a competition on [Kaggle](https://www.kaggle.com/c/rossmann-store-sales). We are forming to a team to compete in the contest for our class project.
-
-The Data
-========
-The Rossmann data consists of historical sales data for 1,115 stores. The data is summarized by store and date and includes the following: daily sales, customers, holiday indicators, store type, store assortment, competition distance, and promotions in two separate files.
-
-Stores
-------
-Supplemental information about each store, its promotions and competition. Here is a sample of the data:
-```{r}
-f <- file.choose()
-dataStores <- read.csv(f, header=T)
-head ( dataStores )
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+rm(list = ls())
+#install.packages("ggplot2")
+library(ggplot2)
+theme_set(theme_gray(base_size = 10))
+pwd <- "C:\\Users\\Jennifer\\Documents\\COURSES\\STAT 139 Modelling\\project\\Stat-139\\"
 ```
 
-Historical Sales
-----------------
-Daily historical sales for each store:
-```{r}
-f <- file.choose()
-dataSales <- read.csv(f, header=T)
-head ( dataSales )
+# Overview
+
+Rossmann operates over 3,000 drug stores in 7 European countries. Currently, Rossmann store managers are tasked with predicting their daily sales for up to six weeks in advance in order to schedule staff effectively. Store sales are influenced by many factors, including promotions, competition, school and state holidays, seasonality, and locality. With thousands of individual managers predicting sales based on their unique circumstances, the accuracy of results can be quite varied.  To address this challenge, Rossmann decided to run a competition on [Kaggle](https://www.kaggle.com/c/rossmann-store-sales). For our class project, we have formed a team to compete in this contest.
+
+# The Data
+
+The Rossmann data consists of two files.  The first file contains store-level data such as:
+
+* Type of store (in terms of its "model" and its overall selection)
+* Information about the closest competitor (distance and longetivity)
+* Information about that store's particular promotion cycle
+
+The second file contains daily data for each store, such as:
+
+* date (also noting that date's exact weekday, holiday status, and school holiday status)
+* whether or not that particular store was open that particular day
+* whether or not the store was running a promotion that day
+* sales amount and number of customers
+
+# The Plan
+ 
+1. Stitch together the two data files so we have full store information for each sales data point.
+2. Analyze all variables to check for normality.
+3. Add additional derived variables that may help with prediction, such as season and weekend dummy variables.
+4. Check for multicolinearity to ensure we do not have any highly correlated variables.
+5. Establish a baseline by performing a naive regression to ensure that our final model is an improvement upon the baseline.
+6. Perform any transformations to meet the assumptions of regression.
+7. Perform stepwise regressions until we have a final model that improves upon the baseline.
+8. Collect our prize money!
+
+# The Progress 
+
+```{r, echo=FALSE}
+# Get source data
+dataStores <- read.csv(paste(pwd, "store.csv", sep=""), header=T)
+dataSales <- read.csv(paste(pwd, "train.csv", sep=""), header=T)
+
+# Merge the data
+dataTraining <- merge ( dataSales, dataStores, by = "Store" )
+test <- head ( dataTraining )
+attach ( dataTraining )
+
+# Add the Competition Flag
+dataTraining$CompetitionOpen <- as.integer ( as.Date ( paste ( CompetitionOpenSinceYear, CompetitionOpenSinceMonth, "1", sep = "-" ), "%Y-%m-%d" ) <= as.Date ( Date ) )
+dataTraining$CompetitionOpen [ is.na ( dataTraining$CompetitionOpen ) ] <- 0
+# Note: this var needs work-- only shows eligibility for promo right now, need to layer on promo2 month
+dataTraining$Promo2Active <- as.integer ( ( as.integer ( format ( as.Date ( Date ), "%Y%U" ) ) > ( ( Promo2SinceYear * 100 ) + Promo2SinceWeek ) ) & ( T ) )
+
 ```
 
-Plan
-====
-1. Stitch together the two data files so we have store information for each historical day of sales
-2. Analyze all variables to check for normality
-3. Check for multicolinearity to ensure we do not have any highly correlated variables
-4. Establish a baseline by performing a naive regression to ensure that our final model is an improvement upon the baseline
-5. Perform any transformations to meet the assumptions of regression
-6. Perform stepwise regressions until we have a final model that improves upon the baseline
-7. Collect our prize money!
+We have already merged our two data files and investigated the normality of the variables within the given data.  While some of the sampling distributions were far from normal to start, some log transformations attained remarkably bell-shaped curves, such as for the Sales figures:
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE, fig.height=2, fig.width=3}
+dataTraining$Sales_log <- log(dataTraining$Sales)
+#dataTraining$Customers_log <- log(dataTraining$Customers)
+
+# Plot Sales
+ggplot(dataTraining, aes(x=Sales, fill=Sales)) + 
+    geom_density() + guides(fill=FALSE) + 
+    ggtitle("Density Plot of Original\nSales Data")
+ggplot(dataTraining, aes(x=Sales_log, fill=Sales_log)) + 
+    geom_density() + guides(fill=FALSE) + 
+    ggtitle("Density Plot of Logged\nSales Data")
+```
+```{r, echo=FALSE, warning=FALSE, message=FALSE, fig.height=2, fig.width=3}
+# Plot Customers
+#ggplot(dataTraining, aes(x=Customers, fill=Customers)) + 
+#    geom_density() + guides(fill=FALSE) +
+#    ggtitle("Density Plot of Original Number of Customers")
+#ggplot(dataTraining, aes(x=Customers_log, fill=Customers_log)) + 
+#    geom_density() + guides(fill=FALSE) +
+#    ggtitle("Density Plot of Logged Number of Customers")
+```
+
+while other sample distributions stay rather interesting looking even after log transformation:
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE, fig.height=2, fig.width=3}
+dataTraining$CompetitionDistance_log <- log(dataTraining$CompetitionDistance)
+
+# Plot Distance of Competition
+ggplot(dataTraining, aes(x=CompetitionDistance, fill=CompetitionDistance)) + 
+    geom_density() + guides(fill=FALSE) +
+    ggtitle("Density Plot of Original\nDistance from Competition")
+ggplot(dataTraining, aes(x=CompetitionDistance_log, fill=CompetitionDistance_log)) + 
+    geom_density() + guides(fill=FALSE) +
+    ggtitle("Density Plot of Logged\nDistance from Competition")
+
+```
+
+We look forward to further explorations of the data!
+
+## Challenges so far
+
+R coding syntax can be tricky when manipulating string variables. Our current challege is to determine whether or not a second promotion is active by comparing a given date with the list of months comprising a particular store's promotion interval.
+
+## Milestones
+
+|  Week         |  Goal                         | 
+|:-------------:|:------------------------------|
+| 11/30 - 12/4  | Explore and supplement data in R |
+| 12/5 - 12/11  | Refine model in R             |
+| 12/12 - 12/16 | Write up results in .rmd      |
+| 12/17 - 12/19 | Final edits and submission    |
+
