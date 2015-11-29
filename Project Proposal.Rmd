@@ -1,0 +1,46 @@
+---
+title: "Project Proposal - Stat E139, Fall 2015 "
+author: "**Stephen Camera-Murray, Jennifer Le Hégaret, Desirée Koh, Elizabeth Wilson-Milne**"
+date: "`r format(Sys.time(), '%B %d, %Y')`"
+output: word_document
+---
+
+Overview
+========
+Rossmann operates over 3,000 drug stores in 7 European countries. Currently, Rossmann store managers are tasked with predicting their daily sales for up to six weeks in advance. Store sales are influenced by many factors, including promotions, competition, school and state holidays, seasonality, and locality. With thousands of individual managers predicting sales based on their unique circumstances, the accuracy of results can be quite varied.
+
+Business Goal
+=============
+Enable store managers to create effective staff schedules that increase productivity and motivation by predicting 6 weeks of daily sales for 1,115 stores located across Germany. To address this challenge Rossmann decided to run a competition on [Kaggle](https://www.kaggle.com/c/rossmann-store-sales). We are forming to a team to compete in the contest for our class project.
+
+The Data
+========
+The Rossmann data consists of historical sales data for 1,115 stores. The data is summarized by store and date and includes the following: daily sales, customers, holiday indicators, store type, store assortment, competition distance, and promotions in two separate files.
+
+Stores
+------
+Supplemental information about each store, its promotions and competition. Here is a sample of the data:
+```{r}
+f <- file.choose()
+dataStores <- read.csv(f, header=T)
+head ( dataStores )
+```
+
+Historical Sales
+----------------
+Daily historical sales for each store:
+```{r}
+f <- file.choose()
+dataSales <- read.csv(f, header=T)
+head ( dataSales )
+```
+
+Plan
+====
+1. Stitch together the two data files so we have store information for each historical day of sales
+2. Analyze all variables to check for normality
+3. Check for multicolinearity to ensure we do not have any highly correlated variables
+4. Establish a baseline by performing a naive regression to ensure that our final model is an improvement upon the baseline
+5. Perform any transformations to meet the assumptions of regression
+6. Perform stepwise regressions until we have a final model that improves upon the baseline
+7. Collect our prize money!
