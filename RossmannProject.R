@@ -13,21 +13,31 @@
 ##################
 
 # Load libraries
-
+#install.packages("ggplot2")
 library ( ggplot2 )
+#install.packages("MASS")
 library ( MASS )
+#install.packages("lubridate")
+library (lubridate)
+
+# Set the pwd
+
+# for Kaggle
+#pwd <- "../input/"
+
+# for Steve
+
+# for Desiree
+
+# for Libby
+
+# for Jennifer
+pwd <- "C:\\Users\\Jennifer\\Documents\\COURSES\\STAT 139 Modelling\\project\\Stat-139\\"
 
 # Read the files
-
-#f <- file.choose()
-f <- "RossmannStoresInfo.csv"
-dataStores <- read.csv(f, header=T)
-#f <- file.choose()
-f <- "RossmannTraining.csv"
-dataSales <- read.csv(f, header=T)
-#f <- file.choose()
-f <- "RossmannTest.csv"
-dataTest <- read.csv(f, header=T)
+dataStores <- read.csv(paste(pwd, "store.csv", sep=""), header=T)
+dataSales <- read.csv(paste(pwd, "train.csv", sep=""), header=T)
+dataTest <- read.csv(paste(pwd, "test.csv", sep=""), header=T)
 # Submission filename
 submissionFilename <- "submission.csv"
 
@@ -52,6 +62,59 @@ dataStores$AvgSales = tapply ( dataSales$Sales, dataSales$Store, FUN = mean )
 dataTraining <- merge ( dataSales, dataStores, by = "Store" )
 
 ## Add vars
+
+# Convert weekdays into actual names, both sets
+dataTraining$DayOfWeek_Named <- rep("Mon", length(dataTraining$DayOfWeek))
+dataTraining$DayOfWeek_Named[dataTraining$DayOfWeek == 2] <- "Tues"
+dataTraining$DayOfWeek_Named[dataTraining$DayOfWeek == 3] <- "Wed"
+dataTraining$DayOfWeek_Named[dataTraining$DayOfWeek == 4] <- "Thurs"
+dataTraining$DayOfWeek_Named[dataTraining$DayOfWeek == 5] <- "Fri"
+dataTraining$DayOfWeek_Named[dataTraining$DayOfWeek == 6] <- "Sat"
+dataTraining$DayOfWeek_Named[dataTraining$DayOfWeek == 7] <- "Sun"
+
+dataTest$DayOfWeek_Named <- rep("Mon", length(dataTest$DayOfWeek))
+dataTest$DayOfWeek_Named[dataTest$DayOfWeek == 2] <- "Tues"
+dataTest$DayOfWeek_Named[dataTest$DayOfWeek == 3] <- "Wed"
+dataTest$DayOfWeek_Named[dataTest$DayOfWeek == 4] <- "Thurs"
+dataTest$DayOfWeek_Named[dataTest$DayOfWeek == 5] <- "Fri"
+dataTest$DayOfWeek_Named[dataTest$DayOfWeek == 6] <- "Sat"
+dataTest$DayOfWeek_Named[dataTest$DayOfWeek == 7] <- "Sun"
+
+# Add a season term
+
+dataTraining$Season <- ""
+dataTraining$Season[dataTraining$SchoolHoliday == 1 & (month(as.Date(dataTraining$Date)) == 12 | month(as.Date(dataTraining$Date)) == 1)] <- "Christmas"
+dataTraining$Season[dataTraining$SchoolHoliday == 1 & (month(as.Date(dataTraining$Date)) == 3 | month(as.Date(dataTraining$Date)) == 4)] <- "Easter"
+dataTraining$Season[dataTraining$SchoolHoliday == 1 & (month(as.Date(dataTraining$Date)) == 7 | month(as.Date(dataTraining$Date)) == 8 | month(as.Date(dataTraining$Date)) == 9)] <- "Summer_Break"
+dataTraining$Season[dataTraining$SchoolHoliday == 1 & month(as.Date(dataTraining$Date)) == 10 ] <- "Fall_Break"
+dataTraining$Season[dataTraining$Season == ""] <- format(as.Date(dataTraining$Date),"%b")
+
+dataTest$Season <- ""
+dataTest$Season[dataTest$SchoolHoliday == 1 & (month(as.Date(dataTest$Date)) == 12 | month(as.Date(dataTest$Date)) == 1)] <- "Christmas"
+dataTest$Season[dataTest$SchoolHoliday == 1 & (month(as.Date(dataTest$Date)) == 3 | month(as.Date(dataTest$Date)) == 4)] <- "Easter"
+dataTest$Season[dataTest$SchoolHoliday == 1 & (month(as.Date(dataTest$Date)) == 7 | month(as.Date(dataTest$Date)) == 8 | month(as.Date(dataTest$Date)) == 9)] <- "Summer_Break"
+dataTest$Season[dataTest$SchoolHoliday == 1 & month(as.Date(dataTest$Date)) == 10 ] <- "Fall_Break"
+dataTest$Season[dataTest$Season == ""] <- format(as.Date(dataTest$Date),"%b")
+
+# Begin to investigate if some stores closed for renovation and then may have had a reopening boost
+
+# A lot of stores closed for the religious holiday of 8/15/15
+sort(dataTest$Date[dataTest$DayOfWeek != 7 & dataTest$Open != 1 & dataTest$StateHoliday != 1])
+
+# Of the non-8/15/15 closures, only 4 stores seem to have repeat closures (274, 703, 879 and 1097)
+sort(dataTest$Store[dataTest$Date != 2015-08-15 & dataTest$DayOfWeek != 7 & dataTest$Open != 1 & dataTest$StateHoliday != 1])
+
+# Store #274 was closed these days - they took an extra week of summer vacation:
+sort(dataTest$Date[dataTest$Open != 1 & dataTest$Store == 274])
+
+# The other stores close right at the end of the test data set, so we won't get the bump:
+sort(dataTest$Date[dataTest$Open != 1 & dataTest$Store == 703])
+sort(dataTest$Date[dataTest$Open != 1 & dataTest$Store == 879])
+sort(dataTest$Date[dataTest$Open != 1 & dataTest$Store == 1097])
+
+# Thanks to #274, though, I suspect I need to add a "back from owner's vacation" flag into our dataTraining set.  >:)
+
+
 
 # Add the Competition Flag
 dataTraining$CompetitionOpen <- as.integer ( as.Date ( paste ( dataTraining$CompetitionOpenSinceYear, dataTraining$CompetitionOpenSinceMonth, "1", sep = "-" ), "%Y-%m-%d" ) <= as.Date ( dataTraining$Date ) )
