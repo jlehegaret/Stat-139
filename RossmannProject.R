@@ -23,7 +23,7 @@ library (lubridate)
 # Set the pwd
 
 # for Kaggle
-#pwd <- "../input/"
+pwd <- "../input/"
 
 # for Steve
 
@@ -32,7 +32,7 @@ library (lubridate)
 # for Libby
 
 # for Jennifer
-pwd <- "C:\\Users\\Jennifer\\Documents\\COURSES\\STAT 139 Modelling\\project\\Stat-139\\"
+#pwd <- "C:\\Users\\Jennifer\\Documents\\COURSES\\STAT 139 Modelling\\project\\Stat-139\\"
 
 # Read the files
 dataStores <- read.csv(paste(pwd, "store.csv", sep=""), header=T)
