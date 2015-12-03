@@ -31,6 +31,11 @@ dataTest <- read.csv(f, header=T)
 # Submission filename
 submissionFilename <- "submission.csv"
 
+##to free up memory?
+gc() ##insert object
+
+write.csv(dataTraining)
+
 ###############################################
 # Step 2 - Massage the data and add variables #
 ###############################################
@@ -79,6 +84,19 @@ dataTraining <- dataTraining [ dataTraining$Sales != 0, ]
 # Libby's section #
 ###################
 
+##11/29/15
+dataTraining$month=months(as.Date(dataTraining$Date))
+dataTraining$Year=years(as.Date(dataTraining$Date))
+
+##12/1/16 
+dataTraining$DayOfWeekDummy<-as.character(dataTraining$DayOfWeek)
+# just make dataset without zeros a different name in case we want to revisit with zeros? 
+#FROM STEVE Remove sales rows when there are no sales that day (usually due to being closed, but not always)
+train <- dataTraining [ dataTraining$Sales != 0, ]
+train$DayOfWeekDummy0<-as.character(train$DayOfWeek)
+###to save progress
+write.csv(dataTraining, file = "dataTraining-merged12.1.15.csv")
+
 #####################
 # Desiree's section #
 #####################
@@ -111,6 +129,23 @@ dataSubmission$LogCompDistance <- log ( dataSubmission$CompetitionDistance )
 ###################
 # Libby's section #
 ###################
+
+#FROM STEVE fit <- lm ( Sales ~ AvgSales + DayOfWeek + Promo + StateHoliday + StoreType + Assortment + LogCompDistance + CompetitionOpen + Promo2Active, data = dataTraining )
+fit <- lm ( Sales ~ Promo + StateHoliday + StoreType + Assortment + CompetitionOpen + Promo2Active, data = train )
+stepwise <- stepAIC ( fit, direction="both" )
+testFit <- predict ( stepwise, train, level = 0.95 )
+summary(fit)
+
+##add effect of different stores using Steve's model above (different intercepts for each store)
+#could not run full model due to memory issues so as test run see my version of "fit" above and modification below - also had to rewrite
+require(lme4)
+fit1<-lmer( Sales ~ Promo + StateHoliday + StoreType + Assortment + CompetitionOpen + Promo2Active + (1|Store), data = train )
+stepwise <- stepAIC ( fit1, direction="both" )
+testFit1 <- predict ( stepwise, train, level = 0.95 )
+summary(fit1)
+
+fitdumb<-lm( Sales ~ DayOfWeekDummy0, data = train )
+summary(fitdumb) ## it works now as dummy
 
 #####################
 # Desiree's section #
