@@ -64,21 +64,8 @@ dataTraining <- merge ( dataSales, dataStores, by = "Store" )
 ## Add vars
 
 # Convert weekdays into actual names, both sets
-dataTraining$DayOfWeek_Named <- rep("Mon", length(dataTraining$DayOfWeek))
-dataTraining$DayOfWeek_Named[dataTraining$DayOfWeek == 2] <- "Tues"
-dataTraining$DayOfWeek_Named[dataTraining$DayOfWeek == 3] <- "Wed"
-dataTraining$DayOfWeek_Named[dataTraining$DayOfWeek == 4] <- "Thurs"
-dataTraining$DayOfWeek_Named[dataTraining$DayOfWeek == 5] <- "Fri"
-dataTraining$DayOfWeek_Named[dataTraining$DayOfWeek == 6] <- "Sat"
-dataTraining$DayOfWeek_Named[dataTraining$DayOfWeek == 7] <- "Sun"
-
-dataTest$DayOfWeek_Named <- rep("Mon", length(dataTest$DayOfWeek))
-dataTest$DayOfWeek_Named[dataTest$DayOfWeek == 2] <- "Tues"
-dataTest$DayOfWeek_Named[dataTest$DayOfWeek == 3] <- "Wed"
-dataTest$DayOfWeek_Named[dataTest$DayOfWeek == 4] <- "Thurs"
-dataTest$DayOfWeek_Named[dataTest$DayOfWeek == 5] <- "Fri"
-dataTest$DayOfWeek_Named[dataTest$DayOfWeek == 6] <- "Sat"
-dataTest$DayOfWeek_Named[dataTest$DayOfWeek == 7] <- "Sun"
+dataTraining$DayOfWeek_Named <- format(as.Date(dataTraining$Date),"%a")
+dataTest$DayOfWeek_Named <- format(as.Date(dataTest$Date),"%a")
 
 # Add a season term
 
@@ -96,25 +83,67 @@ dataTest$Season[dataTest$SchoolHoliday == 1 & (month(as.Date(dataTest$Date)) == 
 dataTest$Season[dataTest$SchoolHoliday == 1 & month(as.Date(dataTest$Date)) == 10 ] <- "Fall_Break"
 dataTest$Season[dataTest$Season == ""] <- format(as.Date(dataTest$Date),"%b")
 
-# Begin to investigate if some stores closed for renovation and then may have had a reopening boost
+## Add a "recently reopened" flag
+addReopenedFlag <- function(dset)
+{
+    # the vector to return
+    Reopened <- rep(0, length(dset$Open))
+    
+    # make a vector of true/false according to if there is a change or not
+    diffs <- dset$Open[-1L] != dset$Open[-length(dset$Open)]; diffs
+    
+    # make a vector of the last indexes of each particular run 
+    idx <- c(which(diffs), length(diffs)); idx
+    
+    # this vector counts how long each run lasted
+    runs <- diff(c(1, idx)); runs
+    
+    # find index values of the last day of each long run and length of each run
+    # NOTE: IF HAVE PROBLEMS, MAYBE JUST FLAG 14 DAYS AND UP HERE RATHER THAN 2
+    poss <- idx[runs > 2]; poss
+    lengths <- runs[runs > 2]; lengths
+    
+    # check each long run to see if it is a run of closures
+    numRuns <- length(poss); numRuns
+    for(i in 1:numRuns)
+    {
+        if(dset$Open[poss[i]] == 0) # this run was of closed days
+        {
+            # mark the first 7 days of REOPENING as "bump"
+            currStore <- dset$Store[poss[i]]
+            #print(paste("Found one for Store #", currStore, "at index # ", poss[i]))
+            if(lengths[i] < 5) # long weekend, maybe just one day's bump
+            {
+                cap <- 1
+            }
+            else if(lengths[i] < 31) # a month or less closed gives it several days
+            { 
+                cap <- 5
+            }
+            else # after longer than a month, give the excitement two weeks
+            {
+                cap <- 14
+            }
+            # don't go past our dataset, though
+            cap <- min(cap, length(dset$Open) - poss[i])
+            j <-1
+            while(j <= cap & dset$Store[poss[i] + j] == currStore)
+            {
+                Reopened[poss[i] + j] <- 1
+                j <- j + 1
+            }
+        }   
+    }    
+    return(Reopened)
+}
 
-# A lot of stores closed for the religious holiday of 8/15/15
-sort(dataTest$Date[dataTest$DayOfWeek != 7 & dataTest$Open != 1 & dataTest$StateHoliday != 1])
+# first, sort, then call function
+dataTraining <- dataTraining[order(dataTraining$Store, dataTraining$Date),]
+dataTraining$Reopened <- addReopenedFlag(dataTraining)
 
-# Of the non-8/15/15 closures, only 4 stores seem to have repeat closures (274, 703, 879 and 1097)
-sort(dataTest$Store[dataTest$Date != 2015-08-15 & dataTest$DayOfWeek != 7 & dataTest$Open != 1 & dataTest$StateHoliday != 1])
-
-# Store #274 was closed these days - they took an extra week of summer vacation:
-sort(dataTest$Date[dataTest$Open != 1 & dataTest$Store == 274])
-
-# The other stores close right at the end of the test data set, so we won't get the bump:
-sort(dataTest$Date[dataTest$Open != 1 & dataTest$Store == 703])
-sort(dataTest$Date[dataTest$Open != 1 & dataTest$Store == 879])
-sort(dataTest$Date[dataTest$Open != 1 & dataTest$Store == 1097])
-
-# Thanks to #274, though, I suspect I need to add a "back from owner's vacation" flag into our dataTraining set.  >:)
-
-
+# first, sort, then call function
+dataTest <- dataTest[order(dataTest$Store, dataTest$Date),]
+dataTest$Reopened <- addReopenedFlag(dataTest)
 
 # Add the Competition Flag
 dataTraining$CompetitionOpen <- as.integer ( as.Date ( paste ( dataTraining$CompetitionOpenSinceYear, dataTraining$CompetitionOpenSinceMonth, "1", sep = "-" ), "%Y-%m-%d" ) <= as.Date ( dataTraining$Date ) )
@@ -245,3 +274,4 @@ qplot ( dataTraining$Customers, geom="density", fill=1 )
 qplot ( log ( dataTraining$Customers ), geom="density", fill=1 )
 qplot ( dataTraining$CompetitionDistance, geom="density", fill=1 )
 qplot ( dataTraining$LogCompDistance , geom="density", fill=1 )
+
