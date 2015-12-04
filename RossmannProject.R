@@ -13,6 +13,7 @@
 ##################
 
 # Load libraries
+
 #install.packages("ggplot2")
 library ( ggplot2 )
 #install.packages("MASS")
@@ -40,11 +41,6 @@ dataSales <- read.csv(paste(pwd, "train.csv", sep=""), header=T)
 dataTest <- read.csv(paste(pwd, "test.csv", sep=""), header=T)
 # Submission filename
 submissionFilename <- "submission.csv"
-
-##to free up memory?
-gc() ##insert object
-
-write.csv(dataTraining)
 
 ###############################################
 # Step 2 - Massage the data and add variables #
@@ -178,16 +174,10 @@ dataTraining <- dataTraining [ dataTraining$Sales != 0, ]
 
 ##11/29/15
 dataTraining$month=months(as.Date(dataTraining$Date))
-dataTraining$Year=years(as.Date(dataTraining$Date))
+dataTraining$Year = format ( as.Date ( dataTraining$Date ), '%Y' )
 
 ##12/1/16 
 dataTraining$DayOfWeekDummy<-as.character(dataTraining$DayOfWeek)
-# just make dataset without zeros a different name in case we want to revisit with zeros? 
-#FROM STEVE Remove sales rows when there are no sales that day (usually due to being closed, but not always)
-train <- dataTraining [ dataTraining$Sales != 0, ]
-train$DayOfWeekDummy0<-as.character(train$DayOfWeek)
-###to save progress
-write.csv(dataTraining, file = "dataTraining-merged12.1.15.csv")
 
 #####################
 # Desiree's section #
@@ -209,6 +199,9 @@ dataSubmission$Promo2Active <- as.integer (
     & ( ( as.integer ( format ( as.Date ( dataSubmission$Date ), "%m" ) ) %% 3 ) == ( as.integer ( dataSubmission$PromoInterval ) - 2 ) ) )
 )
 dataSubmission$LogCompDistance <- log ( dataSubmission$CompetitionDistance )
+dataSubmission$month=months(as.Date(dataSubmission$Date))
+dataSubmission$Year = format ( as.Date ( dataSubmission$Date ), '%Y' )
+dataSubmission$DayOfWeekDummy<-as.character(dataSubmission$DayOfWeek)
 
 #############################
 # Step 3 - Create the model #
@@ -221,23 +214,14 @@ dataSubmission$LogCompDistance <- log ( dataSubmission$CompetitionDistance )
 ###################
 # Libby's section #
 ###################
-
-#FROM STEVE fit <- lm ( Sales ~ AvgSales + DayOfWeek + Promo + StateHoliday + StoreType + Assortment + LogCompDistance + CompetitionOpen + Promo2Active, data = dataTraining )
-fit <- lm ( Sales ~ Promo + StateHoliday + StoreType + Assortment + CompetitionOpen + Promo2Active, data = train )
-stepwise <- stepAIC ( fit, direction="both" )
-testFit <- predict ( stepwise, train, level = 0.95 )
-summary(fit)
+require(lme4)
 
 ##add effect of different stores using Steve's model above (different intercepts for each store)
 #could not run full model due to memory issues so as test run see my version of "fit" above and modification below - also had to rewrite
 require(lme4)
-fit1<-lmer( Sales ~ Promo + StateHoliday + StoreType + Assortment + CompetitionOpen + Promo2Active + (1|Store), data = train )
-stepwise <- stepAIC ( fit1, direction="both" )
-testFit1 <- predict ( stepwise, train, level = 0.95 )
+fit1<-lmer( LogSales ~ month + Year + DayOfWeekDummy + Promo + StateHoliday + StoreType + Assortment + CompetitionOpen + Promo2Active + (1|Store), data = dataTraining )
+#stepwise <- stepAIC ( fit1, direction="both" )
 summary(fit1)
-
-fitdumb<-lm( Sales ~ DayOfWeekDummy0, data = train )
-summary(fitdumb) ## it works now as dummy
 
 #####################
 # Desiree's section #
@@ -251,12 +235,14 @@ summary(fitdumb) ## it works now as dummy
 fit <- lm ( LogSales ~ AvgSales + DayOfWeek + Promo + StateHoliday + StoreType + Assortment + CompetitionOpen + Promo2Active, data = dataTraining )
 stepwise <- stepAIC ( fit, direction="both" )
 testFit <- predict ( stepwise, dataTraining, level = 0.95 )
+summary (fit)
+fitRandomEffects<-lmer( LogSales ~ month + Year + DayOfWeekDummy + AvgSales + Promo + StateHoliday + StoreType + Assortment + CompetitionOpen + Promo2Active + (1|Store), data = dataTraining )
 
 ##############################################################################
 # Step 4 - Make predictions for the test set and export the submission file  #
 ##############################################################################
 # Note: Replace "stepwise" with your model name for the submission prediction
-dataSubmission$Sales <- exp ( predict ( stepwise, dataSubmission, level = 0.95 ) )
+dataSubmission$Sales <- exp ( predict ( fitRandomEffects, dataSubmission, level = 0.95 ) )
 # Predict 0 for stores that are closed
 dataSubmission$Sales [ dataSubmission$Open == 0 ] <- 0
 dataSubmission$Sales [ is.na ( dataSubmission$Sales ) ] <- 0
@@ -274,4 +260,3 @@ qplot ( dataTraining$Customers, geom="density", fill=1 )
 qplot ( log ( dataTraining$Customers ), geom="density", fill=1 )
 qplot ( dataTraining$CompetitionDistance, geom="density", fill=1 )
 qplot ( dataTraining$LogCompDistance , geom="density", fill=1 )
-
