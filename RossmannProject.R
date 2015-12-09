@@ -121,7 +121,7 @@ fitRandomEffects<-lmer( LogSales ~ month + Year + DayOfWeekDummy + AvgSales + Pr
 # Jennifer's section #
 ######################
                          
-jlh <- dataTraining[ , c("LogSales", "LogAvgSales", "Season" , "DayOfWeek_Named", "Reopened", "StateHoliday", "SchoolHoliday", "StoreType", "Assortment", "NumPromos", "CompetitionOpen", "CompetitionNONE", "LogCompDistance")]
+jlh <- dataTraining[ , c("LogSales", "LogAvgSales", "Season" , "SummerMonthDummy", "SummerBoost", "DayOfWeek_Named", "MonFri", "Reopened", "StateHoliday", "SchoolHoliday", "StoreType", "Assortment", "NumPromos", "CompetitionOpen", "CompetitionNONE", "LogCompDistance")]
                     
 jlh_m <- lm(data = jlh, LogSales ~ .)
 
@@ -149,4 +149,12 @@ ggplot(ggplot2::fortify(jlh_m), aes(.fitted, .resid)) + geom_point() + stat_smoo
 model <- jlh_m
 
 makeSubmissionFile(model, pwd, "submit.csv")
+
+
+###################################################
+#            HELPER FUNCTIONS                     #
+###################################################
+
+# Will try putting code down here later once have all derived data in place
+
 

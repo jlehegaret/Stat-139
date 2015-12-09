@@ -54,6 +54,9 @@ makeTestFile <- function(pwd)
     dataStores <- read.csv(paste(pwd, "dataStores_full.csv", sep=""), header=T)
     dataSkeleton <- read.csv(paste(pwd, "test.csv", sep=""), header=T)
 
+    print("Adding reopened flag")
+    dataSkeleton$Reopened <- addReopenedFlag(dataSkeleton)
+    
     # Merge the data
     dataTest <- merge ( dataSkeleton, dataStores, by = "Store" )
     
@@ -95,25 +98,22 @@ addStoreDerived <- function(dataStores, dataSales)
     dataStores$AvgSales = tapply ( dataSales$Sales, dataSales$Store, FUN = mean )
     dataStores$LogAvgSales <- log( dataStores$AvgSales )
     
+    # Determine which stores are seasonal stores (high summer sales)
+    
     # Average summer/winter sales by store
-    dataSales$month=months(as.Date(dataSales$Date, '%m/%d/%Y'))
-    dataSales$SummerMonthDummy <- 0
-    dataSales$SummerMonthDummy[(dataSales$month=="June")|(dataSales$month=="July")|(dataSales$month=="August")] <- 1
-    dataSales$WinterMonthDummy <- 0
-    dataSales$WinterMonthDummy[(dataSales$month=="December")|(dataSales$month=="January")|(dataSales$month=="February")] <- 1
-    #dataStores$AvgSummerSales = tapply ( dataSales$Sales[dataSales$SummerMonthDummy==1], dataSales$Store[dataSales$SummerMonthDummy==1], FUN = mean )
-    #dataStores$AvgWinterSales = tapply ( dataSales$Sales[dataSales$WinterMonthDummy==1], dataSales$Store[dataSales$WinterMonthDummy==1], FUN = mean )
-    #dataStores$SummerBoost <- 0
-    #dataStores$SummerBoost[(dataStores$AvgSummerSales/dataStores$AvgWinterSales)>1.5] <- 1
+    dataSales$month = month(as.Date(dataSales$Date))
+    dataSales$SummerMonthDummy <- (dataSales$month== 6)|(dataSales$month==7)|(dataSales$month==8)
+    dataSales$WinterMonthDummy <- (dataSales$month==12)|(dataSales$month==1)|(dataSales$month==2)
+    dataStores$AvgSummerSales = tapply ( dataSales$Sales[dataSales$SummerMonthDummy==1], dataSales$Store[dataSales$SummerMonthDummy==1], FUN = mean )
+    dataStores$AvgWinterSales = tapply ( dataSales$Sales[dataSales$WinterMonthDummy==1], dataSales$Store[dataSales$WinterMonthDummy==1], FUN = mean )
+    dataStores$SeasonSalesRatio <- dataStores$AvgSummerSales/dataStores$AvgWinterSales
+    dataStores$SummerBoost <- (dataStores$SeasonSalesRatio > 1.5)
     
     return(dataStores)
 }
 
 addDateDerived <- function(dataTraining)
-{
-    print("Sorting table")
-    dataTraining <- dataTraining[order(dataTraining$Store, dataTraining$Date),]
-    
+{    
     print("Adding quick calculations")
     dataTraining$Month = months(as.Date(dataTraining$Date))
     dataTraining$Year = format ( as.Date ( dataTraining$Date ), '%Y' )
@@ -179,32 +179,39 @@ addSeason <- function(dataTraining)
 
 addReopenedFlag <- function(dset)
 {
+
+    #print("Sorting table")
+    dset <- dset[order(dset$Store, dset$Date),]
+    
     # the vector to return
     Reopened <- rep(0, length(dset$Open))
     
     # make a vector of true/false according to if there is a change or not
-    diffs <- dset$Open[-1L] != dset$Open[-length(dset$Open)]; diffs
+    diffs <- dset$Open[-1L] != dset$Open[-length(dset$Open)]; #diffs
     
     # make a vector of the last indexes of each particular run 
-    idx <- c(which(diffs), length(diffs)); idx
+    idx <- c(which(diffs), length(diffs)); #idx
     
     # this vector counts how long each run lasted
-    runs <- diff(c(1, idx)); runs
+    runs <- diff(c(1, idx)); #runs
     
     # find index values of the last day of each long run and length of each run
     # NOTE: IF HAVE PROBLEMS, MAYBE JUST FLAG 14 DAYS AND UP HERE RATHER THAN 2
-    poss <- idx[runs > 2]; poss
-    lengths <- runs[runs > 2]; lengths
+    poss <- idx[runs > 2]; #poss
+    lengths <- runs[runs > 2]; #lengths
     
     # check each long run to see if it is a run of closures
-    numRuns <- length(poss); numRuns
+    numRuns <- length(poss); #numRuns
+    #print("Checking runs")
     for(i in 1:numRuns)
     {
         if(dset$Open[poss[i]] == 0) # this run was of closed days
         {
-            # mark the first days of REOPENING as "bump"
+            # mark the first days of REOPENING as "bump"   
             currStore <- dset$Store[poss[i]]
+            
             #print(paste("Found one for Store #", currStore, "at index # ", poss[i]))
+            
             if(lengths[i] < 5) # long weekend, maybe just one day's bump
             {
                 cap <- 1
@@ -219,14 +226,18 @@ addReopenedFlag <- function(dset)
             }
             # don't go past our dataset, though
             cap <- min(cap, length(dset$Open) - poss[i])
+            #print(paste("For a run of", lengths[i], "cap is", cap))
             j <- 1
             while(j <= cap & dset$Store[poss[i] + j] == currStore)
             {
+                #print(paste("Put a 1 in", (poss[i] + j)))
                 Reopened[poss[i] + j] <- 1
                 j <- j + 1
             }
         }   
-    }    
+    } 
+    #print(paste("done.  Reopened has values of"))
+    #print(unique(Reopened))
     return(Reopened)
 }    
 
