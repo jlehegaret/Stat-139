@@ -14,6 +14,9 @@
 
 rm(list = ls())
 
+# Choose your data
+desired_data <- "dataModel_pruned.csv"
+
 ## Set the pwd
 
 # for Kaggle
@@ -48,11 +51,13 @@ source(paste(pwd, "RossmannProject_GetData.R", sep=""))
 # Step 2 - Transform and Derive Data #
 ######################################       
 
-if(!file.exists(paste(pwd, "dataTraining_full.csv", sep=""))) 
+if(!file.exists(paste(pwd, desired_data, sep=""))) 
 {
     getFullData(pwd)
 }
-dataTraining <- read.csv(paste(pwd, "dataTraining_full.csv", sep=""), header=T)
+dataTraining <- read.csv(paste(pwd, desired_data, sep=""), header=T)
+dataTraining <- dataTraining[,-1]
+dataTraining$YearFactor <- as.factor(dataTraining$YearFactor)
 
 ### Here are graphs to explain why we transformed, and other initial data explorations
 
@@ -102,6 +107,12 @@ summary(fit1)
 # Desiree's section #
 #####################
 
+dklm <- lm ( LogSales ~ SummerMonthDummy*SummerBoost + DayOfWeek + Promo + StateHoliday + StoreType + Assortment + CompetitionOpen + Promo2Active, data = dataTraining )
+summary(dklm)
+
+# box plot example
+boxplot(LogSales ~ DayOfWeek, data=dataTraining)
+
 ###################
 # Steve's section #
 ###################
@@ -121,13 +132,11 @@ fitRandomEffects<-lmer( LogSales ~ month + Year + DayOfWeekDummy + AvgSales + Pr
 # Jennifer's section #
 ######################
                          
-jlh <- dataTraining[ , c("LogSales", "LogAvgSales", "Season" , "SummerMonthDummy", "SummerBoost", "DayOfWeek_Named", "MonFri", "Reopened", "StateHoliday", "SchoolHoliday", "StoreType", "Assortment", "NumPromos", "CompetitionOpen", "CompetitionNONE", "LogCompDistance")]
-                    
-jlh_m <- lm(data = jlh, LogSales ~ .)
+# Here is the code to make that neat football plot I'd made before - this is all it takes. :-)
 
-summary(jlh_m)
-
-ggplot(ggplot2::fortify(jlh_m), aes(.fitted, .resid)) + geom_point() + stat_smooth() + labs(title="Residual Plot")
+my_model <- lm(LogSales ~ YearFactor + Season + NumPromos + Reopened + DayOfWeek_Named + LogPriorSales, data = dataTraining)
+summary(my_model)
+ggplot(ggplot2::fortify(MODEL_VAR), aes(.fitted, .resid)) + geom_point() + stat_smooth() + labs(title="Residual Plot")
 
 
 ################################################
@@ -146,15 +155,11 @@ ggplot(ggplot2::fortify(jlh_m), aes(.fitted, .resid)) + geom_point() + stat_smoo
 # SUBSTITUTE IN YOUR FAVORITE MODEL FOR THE "MODEL" VARIABLE HERE 
 # (and change the filename if you like):
 
-model <- jlh_m
+model <- my_model
 
 makeSubmissionFile(model, pwd, "submit.csv")
 
 
-###################################################
-#            HELPER FUNCTIONS                     #
-###################################################
 
-# Will try putting code down here later once have all derived data in place
 
 

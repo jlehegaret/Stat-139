@@ -37,14 +37,21 @@ getFullData <- function(pwd)
 
     # add date-level derived data
     print("Adding date-level derived data")
-    dataTraining <- addDateDerived(dataTraining)
+    dataTraining <- addDateDerived(dataTraining, pwd)
     dataTraining$LogSales <- log(dataTraining$Sales) 
     
     # export new files by given names
+    
     print("Exporting full Stores data")
     write.csv(dataStores, paste(pwd, "dataStores_full.csv", sep=""))    
+    
     print("Exporting full Training data")
     write.csv(dataTraining, paste(pwd, "dataTraining_full.csv", sep=""))
+    
+    print("Exporting pruned data")
+    Pruned <- dataTraining[ , c("StoreFactor", "LogSales", "Date", "YearFactor", "Month", "Season", "DayOfWeek_Named", "MonFri", "StateHolidayDummy", "StateHoliday", "SchoolHoliday", "SummerMonthDummy", "WinterMonthDummy", "SummerBoost", "SundayOpen", "SundayClosed" , "Reopened", "StoreType", "Assortment", "NumPromos", "CompetitionOpen", "CompetitionNONE", "LogCompDistance", "CloseCompetitor", "PriorSales", "LogPriorSales")]
+    write.csv(Pruned, paste(pwd, "dataModel_pruned_w2013.csv", sep=""))
+    write.csv(Pruned[Pruned$YearFactor != 2013, ], paste(pwd, "dataModel_pruned.csv", sep=""))
     print("Done!")
 }
 
@@ -61,8 +68,8 @@ makeTestFile <- function(pwd)
     dataTest <- merge ( dataSkeleton, dataStores, by = "Store" )
     
     # add date-level derived data
-    dataTest <- addDateDerived(dataTest)
-
+    dataTest <- addDateDerived(dataTest, pwd)
+    
     # export new file for testing
     write.csv(dataTest, paste(pwd, "dataTesting_full.csv", sep=""))    
 }
@@ -78,6 +85,8 @@ makeSubmissionFile <- function(model, pwd, filename)
     # Read the file
     print("Reading in test file")
     dataSubmission <- read.csv(paste(pwd, "dataTesting_full.csv", sep=""), header=T)
+    dataSubmission <- dataSubmission[,-1]
+    dataSubmission$YearFactor <- as.factor(dataSubmission$YearFactor)
     
     print("Making predictions")
     dataSubmission$Sales <- exp ( predict ( model, dataSubmission, level = 0.95 ) )
@@ -93,10 +102,24 @@ makeSubmissionFile <- function(model, pwd, filename)
 }
 
 addStoreDerived <- function(dataStores, dataSales)
-{
+{ 
+    # fix Store factor
+    dataStores$StoreFactor <- paste("Store", as.factor(dataStores$Store), sep="")
+    
+    # A little data supplementation, to override NA values of competitor distance with the average
+    dataStores$CompetitionDistance[dataStores$Store %in% c(291, 622, 879)] <- 5458
+    
+    # Mark if the store is open on Sundays
+    dataSales$OpenSundayCheck <- dataSales$Open == 1 & dataSales$DayOfWeek == 7
+    dataStores$SundayOpen <- dataStores$Store %in% unique(dataSales$Store[dataSales$OpenSundayCheck == 1])
+    dataStores$SundayClosed <- abs(dataStores$SundayOpen - 1)
+    
+    # Mark which stores are in the closest 10% to their competitors
+    dataStores$CloseCompetitor <- dataStores$CompetitionDistance < quantile(dataStores$CompetitionDistance, c(.1), na.rm = TRUE)
+    
     # Average sales by store
-    dataStores$AvgSales = tapply ( dataSales$Sales, dataSales$Store, FUN = mean )
-    dataStores$LogAvgSales <- log( dataStores$AvgSales )
+    # dataStores$AvgSales = tapply ( dataSales$Sales, dataSales$Store, FUN = mean )
+    # dataStores$LogAvgSales <- log( dataStores$AvgSales )
     
     # Determine which stores are seasonal stores (high summer sales)
     
@@ -112,14 +135,18 @@ addStoreDerived <- function(dataStores, dataSales)
     return(dataStores)
 }
 
-addDateDerived <- function(dataTraining)
+addDateDerived <- function(dataTraining, pwd)
 {    
     print("Adding quick calculations")
     dataTraining$Month = months(as.Date(dataTraining$Date))
-    dataTraining$Year = format ( as.Date ( dataTraining$Date ), '%Y' )
+    dataTraining$YearFactor <- as.factor(format(as.Date(dataTraining$Date),'%Y'))
     dataTraining$DayOfWeekDummy <- as.character(dataTraining$DayOfWeek)
     dataTraining$DayOfWeek_Named <- format(as.Date(dataTraining$Date),"%a")
     dataTraining$MonFri <- dataTraining$DayOfWeek_Named == "Mon" | dataTraining$DayOfWeek_Named == "Fri"
+    dataTraining$StateHolidayDummy <- dataTraining$StateHoliday != 0
+    
+    print("Figuring out prior sales")
+    dataTraining <- addPriorSales(dataTraining, pwd)
     
     print("Adding competition info")
     dataTraining <- addCompetitionFlag(dataTraining) #$CompetitionOpen
@@ -132,7 +159,7 @@ addDateDerived <- function(dataTraining)
     
     print("Adding season data")
     dataTraining <- addSeason(dataTraining) # $Season   
-    
+       
     return(dataTraining)
 }
 
@@ -176,7 +203,7 @@ addSeason <- function(dataTraining)
   
     return(dataTraining)
 }
-
+    
 addReopenedFlag <- function(dset)
 {
 
@@ -241,7 +268,40 @@ addReopenedFlag <- function(dset)
     return(Reopened)
 }    
 
+addPriorSales <- function(dset, pwd)
+{
+    #dset <- dataTraining
+    
+    # When necessary, we make a file of 2013 and 2014 by store, by month numbers
+    if(!file.exists(paste(pwd, "data_PriorSales.csv", sep=""))) 
+    {
+        print("Making data file")
+        makeSalesFile(pwd)
+    }
+    print("Reading in data file")
+    Prior <- read.csv(paste(pwd, "data_PriorSales.csv", sep=""), header=T)
+    Prior <- Prior[, -1] # drop column of row numbers
+    
+    # Then, for every month and store in the dataset we are given, we find the prior year's sales information and put that in the dataset
+    dset$PriorSalesKey <- paste(dset$Store, months(as.Date(dset$Date)), (year(as.Date(dset$Date)) - 1), sep="")
+    dset <- merge ( Prior, dset, by = "PriorSalesKey", all.y = TRUE )
+    dset$PriorSales[is.na(dset$PriorSales) | is.nan(dset$PriorSales) | dset$PriorSales == 0] <- .01
+    dset$LogPriorSales <- log(dset$PriorSales)
+    return(dset)
+}
 
-
-
+makeSalesFile <- function(pwd)
+{
+    Sales <- read.csv(paste(pwd, "train.csv", sep=""), header=T)
+    Sales <- Sales[year(as.Date(Sales$Date)) < 2015,]
+    Sales$MonthYear <- paste(months(as.Date(Sales$Date)), year(as.Date(Sales$Date)), sep="")
+    Sales <- Sales[order(Sales$Store, Sales$MonthYear),]    
+    SumData <- tapply(Sales$Sales, list(Sales$Store, Sales$MonthYear), sum)
+    
+    Melted <- melt(SumData)
+    colnames(Melted) <- c("Store", "MonthYear", "PriorSales")
+    Melted$PriorSalesKey <- paste(Melted$Store, Melted$MonthYear, sep="")
+    
+    write.csv(Melted[ ,c("PriorSalesKey", "PriorSales")], paste(pwd, "data_PriorSales.csv", sep=""))
+}
 
