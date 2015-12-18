@@ -150,8 +150,9 @@ addDateDerived <- function(dataTraining, pwd)
     
     print("Adding competition info")
     dataTraining <- addCompetitionFlag(dataTraining) #$CompetitionOpen
-    dataTraining$CompetitionNONE <- abs(dataTraining$CompetitionOpen - 1) 
-    dataTraining$LogCompDistance <- log ( dataTraining$CompetitionDistance + .01)
+    dataTraining$CompetitionNONE <- abs(dataTraining$CompetitionOpen - 1)
+    dataTraining$CompetitionDistance <- dataTraining$CompetitionDistance + 1
+    dataTraining$LogCompDistance <- log(dataTraining$CompetitionDistance)
     
     print("Adding promotion info")
     dataTraining <- addPromo2Flag(dataTraining) #$Promo2
@@ -285,7 +286,8 @@ addPriorSales <- function(dset, pwd)
     # Then, for every month and store in the dataset we are given, we find the prior year's sales information and put that in the dataset
     dset$PriorSalesKey <- paste(dset$Store, months(as.Date(dset$Date)), (year(as.Date(dset$Date)) - 1), sep="")
     dset <- merge ( Prior, dset, by = "PriorSalesKey", all.y = TRUE )
-    dset$PriorSales[is.na(dset$PriorSales) | is.nan(dset$PriorSales) | dset$PriorSales == 0] <- .01
+    dset$PriorSales[is.na(dset$PriorSales) | is.nan(dset$PriorSales)] <- 0
+    dset$PriorSales <- dset$PriorSales + 1
     dset$LogPriorSales <- log(dset$PriorSales)
     return(dset)
 }

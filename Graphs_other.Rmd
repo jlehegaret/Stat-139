@@ -1,0 +1,148 @@
+---
+title: "Stat E-139 Project"
+author: "Jennifer Le Hégaret"
+date: "Saturday, December 12, 2015"
+output: pdf_document
+---
+
+# Graphs in support of the data exploration
+
+```{r setup, include=FALSE}
+#knitr::opts_chunk$set(dev = 'pdf')
+```
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+
+rm(list = ls())
+
+# Choose your data
+desired_data <- "dataModel_pruned.csv"
+
+## Set the pwd
+pwd <- "../input/"   # for Kaggle
+pwd <- "C:\\Users\\Jennifer\\Documents\\COURSES\\STAT_139_Modelling\\project\\Stat-139\\"
+
+#install.packages("lubridate")
+library (lubridate)
+#install.packages("lme4")
+library (lme4)
+#install.packages("ggplot2")
+library(ggplot2)
+theme_set(theme_gray(base_size = 10))
+#install.packages("moments")
+library(moments)
+#install.packages("reshape2")
+library(reshape2)
+#install.packages("MASS")
+library(MASS) # critical for the qqplots with lines!
+
+source(paste(pwd, "RossmannProject_GetData.R", sep=""))
+
+######################################
+# Step 2 - Transform and Derive Data #
+######################################       
+
+dataTraining <- read.csv(paste(pwd, desired_data, sep=""), header=T)
+#dataTraining <- dataTraining[c(1:10),-1]
+dataTraining <- dataTraining[,-1]
+dataTraining$YearFactor <- as.factor(dataTraining$YearFactor)
+dataTraining$ID <- paste(dataTraining$Date, dataTraining$StoreFactor, sep="")
+```
+
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE, fig.height = 3}
+# Histograms
+dset <- melt(dataTraining[ , c("LogSales", "LogCompDistance", "NumPromos", "PriorSales", "LogPriorSales", "ID")], id.vars = "ID")
+
+plotlist <- sort(unique(dset$variable))
+numPlots <- length(plotlist)
+for(i in 1:numPlots)
+{
+  vplot <- ggplot(dset[dset$variable == plotlist[i],],aes(x = value)) + 
+    geom_histogram() +
+    labs(title = paste("Histogram of ", plotlist[i], sep=""))
+  ggsave(file = paste("Histogram", i, ".png", sep=""))
+}
+
+# QQ Plots
+params <- as.list(aggregate(value ~ variable, dset, function(x) fitdistr(x, "normal")$estimate))
+params_df <- as.data.frame(aggregate(value ~ variable, dset, function(x) fitdistr(x, "normal")$estimate))
+params_df <- data.frame(params_df$variable, params_df$value[, 1], params_df$value[, 2])
+colnames(params_df) <- c("variable", "mean", "sd")
+
+plotlist <- sort(unique(dset$variable))
+numPlots <- length(plotlist)
+for(i in 1:numPlots)
+{
+  vplot <- ggplot(dset[dset$variable == plotlist[i],], aes(sample = value)) + 
+    stat_qq(dparam = params) + 
+    geom_abline(aes(intercept = mean, slope = sd), data = params_df[params_df$variable == plotlist[i], ]) +
+    labs(title= paste("QQ Plot for ", plotlist[i], sep=""))
+  ggsave(file = paste("QQ", i, ".png", sep=""))
+}
+
+# Scatterplots
+dset <- melt(dataTraining[ , c("LogSales", "LogCompDistance", "NumPromos", "PriorSales", "LogPriorSales")], id.vars = "LogSales")
+
+plotlist <- sort(unique(dset$variable))
+numPlots <- length(plotlist)
+for(i in 1:numPlots)
+{
+  vplot <- ggplot(dset[dset$variable == plotlist[i],], aes(x=value, y=LogSales)) +  
+    geom_point() +
+    labs(title = paste("Scatterplot of\n", plotlist[i], " vs. Log Sales", sep=""))
+  ggsave(file = paste("Scatter", i, ".png", sep=""))
+}
+```
+
+## Normality Checks
+
+![plot](Histogram1.png)
+![plot](Histogram2.png)
+![plot](Histogram3.png)
+![plot](Histogram4.png)
+![plot](Histogram5.png)
+![plot](QQ1.png)
+![plot](QQ2.png)
+![plot](QQ3.png)
+![plot](QQ4.png)
+![plot](QQ5.png)
+
+## Linearity Checks 
+
+![plot](Scatter1.png)
+![plot](Scatter2.png)
+![plot](Scatter3.png)
+![plot](Scatter4.png)
+
+\newpage
+
+# Addendum
+
+By the way, guys, here's how you get the fancy math stuff into PDFs:    
+* You install the super-complete huge version of MikTek, even though you think you might not need to - just take that road and it's simpler later.
+* In R Studio, you use File / New / Markdown to prod R to find and install the necessary packages like knitr
+* There's a very recent tutorial [here](https://medium.com/@sorenlind/create-pdf-reports-using-r-r-markdown-latex-and-knitr-on-windows-10-952b0c48bfa9#.vxaac45wy):  
+
+And then you can do stuff like this very random math:
+
+\[
+\begin{aligned}
+Var(\bar{Y}_{treatment} - \bar{Y}_{control}) &= Var(\bar{Y}_{treatment}) + Var(\bar{Y}_{control}) \\
+   &= \frac{1}{n_{treatment}}\sigma^2 + \frac{1}{n_{control}}\sigma^2 \\
+   &= \sum_{j=1}^{n_i}Y_{ij} - \sum_{j=1}^{n_i}\bar{Y}_i \\
+\end{aligned}
+\]
+
+(That is LateX up above - tons of help out there via Google for which tag will make what math thing you need, and it's basically the standard out there for how to write math (seeing as MathML has not gone anywhere))
+
+and more Latex:  In this equation, $\frac{Y_i - \bar{Y}}{X_i - \bar{X}}$ measures...
+
+you can even evaluate R things inline:  `r 2+2` and refer to previously used R variables freely to grab and manipulate their values
+
+and the basic markdown table will look like:
+
+| Removed      | P-value was |
+|:-------------|:-----------:|
+| Unemployment | .887251     |
+| Uninsured    | .423605     |
+

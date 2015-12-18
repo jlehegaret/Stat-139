@@ -1,0 +1,93 @@
+---
+title: "Stat E-139 Project"
+author: "Jennifer Le Hégaret"
+date: "Saturday, December 12, 2015"
+output: pdf_document
+---
+
+# Graphs in support of the data exploration
+
+```{r setup, include=FALSE}
+#knitr::opts_chunk$set(dev = 'pdf')
+```
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+
+rm(list = ls())
+
+# Choose your data
+desired_data <- "dataModel_pruned.csv"
+
+## Set the pwd
+
+# for Kaggle
+pwd <- "../input/"
+pwd <- "C:\\Users\\Jennifer\\Documents\\COURSES\\STAT 139 Modelling\\project\\Stat-139\\"
+
+#install.packages("lubridate")
+library (lubridate)
+#install.packages("lme4")
+library (lme4)
+#install.packages("ggplot2")
+library(ggplot2)
+theme_set(theme_gray(base_size = 10))
+#install.packages("moments")
+library(moments)
+#install.packages("reshape2")
+library(reshape2)
+#install.packages("MASS")
+library(MASS) # critical for the qqplots with lines!
+#install.packages("gridExtra")
+library(gridExtra)
+
+source(paste(pwd, "RossmannProject_GetData.R", sep=""))
+
+######################################
+# Step 2 - Transform and Derive Data #
+######################################       
+
+dataTraining <- read.csv(paste(pwd, desired_data, sep=""), header=T)
+#dataTraining <- dataTraining[c(1:10, 1000:1200),-1]
+dataTraining <- dataTraining[,-1]
+dataTraining$YearFactor <- as.factor(dataTraining$YearFactor)
+dataTraining$ID <- paste(dataTraining$Date, dataTraining$StoreFactor, sep="")
+```
+
+## Boxplots
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE, fig.height = 3}
+dset <- melt(dataTraining[ , -c(1, 3, 23, 25, 26, 27)], id.vars = "LogSales")
+
+plotlist <- sort(unique(dset$variable))
+numPlots <- length(plotlist)
+
+for(i in 1:numPlots)
+{
+  vplot <- ggplot(dset[dset$variable == plotlist[i],], aes(x=value, y=LogSales)) +  
+    geom_violin(alpha=0.2, color="gray") + 
+    geom_jitter(alpha=0.05, position = position_jitter(width = 0.1)) +
+    labs(title = paste("Violin Plot of ", plotlist[i], "\nAgainst Log Sales", sep=""))
+  ggsave(file = paste("boxplot", i, ".png", sep=""))
+}
+
+```
+
+![plot](boxplot1.png)
+![plot](boxplot2.png)
+![plot](boxplot3.png)
+![plot](boxplot4.png)
+![plot](boxplot5.png)
+![plot](boxplot6.png)
+![plot](boxplot7.png)
+![plot](boxplot8.png)
+![plot](boxplot9.png)
+![plot](boxplot10.png)
+![plot](boxplot11.png)
+![plot](boxplot12.png)
+![plot](boxplot13.png)
+![plot](boxplot14.png)
+![plot](boxplot15.png)
+![plot](boxplot16.png)
+![plot](boxplot17.png)
+![plot](boxplot18.png)
+![plot](boxplot19.png)
+![plot](boxplot20.png)

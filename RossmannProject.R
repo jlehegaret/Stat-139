@@ -82,10 +82,8 @@ qplot ( dataTraining$LogCompDistance , geom="density", fill=1 )
 ###################
 
 ######################
-# Jennifer's section #
+# Jennifer's section -- see supplementary graphs.rmd #
 ######################
-
-
 
                      
 #############################
@@ -134,7 +132,7 @@ fitRandomEffects<-lmer( LogSales ~ month + Year + DayOfWeekDummy + AvgSales + Pr
                          
 # Here is the code to make that neat football plot I'd made before - this is all it takes. :-)
 
-my_model <- lm(LogSales ~ YearFactor + Season + NumPromos + Reopened + DayOfWeek_Named + LogPriorSales, data = dataTraining)
+MODEL_VAR <- lm(LogSales ~ YearFactor + Season + NumPromos + Reopened + DayOfWeek_Named + LogPriorSales, data = dataTraining)
 summary(my_model)
 ggplot(ggplot2::fortify(MODEL_VAR), aes(.fitted, .resid)) + geom_point() + stat_smooth() + labs(title="Residual Plot")
 
