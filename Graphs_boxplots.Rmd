@@ -15,7 +15,7 @@ output: pdf_document
 rm(list = ls())
 
 # Choose your data
-desired_data <- "dataModel_pruned.csv"
+desired_data <- "dataTraining_full.csv"
 
 ## Set the pwd
 

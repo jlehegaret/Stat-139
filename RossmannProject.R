@@ -15,21 +15,10 @@
 rm(list = ls())
 
 # Choose your data
-desired_data <- "dataModel_pruned.csv"
+desired_data <- "dataModel_pruned_w2013.csv"
 
 ## Set the pwd
-
-# for Kaggle
-pwd <- "../input/"
-
-# for Steve
-
-# for Desiree
-
-# for Libby
-
-# for Jennifer
-pwd <- "C:\\Users\\Jennifer\\Documents\\COURSES\\STAT 139 Modelling\\project\\Stat-139\\"
+pwd <- "C:\\Users\\Jennifer\\Documents\\COURSES\\STAT_139_Modelling\\project\\Stat-139\\"
 
 #install.packages("lubridate")
 library (lubridate)

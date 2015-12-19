@@ -49,7 +49,7 @@ getFullData <- function(pwd)
     write.csv(dataTraining, paste(pwd, "dataTraining_full.csv", sep=""))
     
     print("Exporting pruned data")
-    Pruned <- dataTraining[ , c("StoreFactor", "LogSales", "Date", "YearFactor", "Month", "Season", "DayOfWeek_Named", "MonFri", "StateHolidayDummy", "StateHoliday", "SchoolHoliday", "SummerMonthDummy", "WinterMonthDummy", "SummerBoost", "SundayOpen", "SundayClosed" , "Reopened", "StoreType", "Assortment", "NumPromos", "CompetitionOpen", "CompetitionNONE", "LogCompDistance", "CloseCompetitor", "PriorSales", "LogPriorSales")]
+    Pruned <- dataTraining[ , c("StoreFactor", "LogSales", "Date", "YearFactor", "Month", "Season", "DayOfWeek_Named", "MonFri", "StateHolidayDummy", "StateHoliday", "SchoolHoliday", "SummerMonthDummy", "WinterMonthDummy", "SummerBoost", "SundayOpen", "SundayClosed" , "Reopened", "StoreType", "Assortment", "Promo", "Promo2Active" , "NumPromos", "CompetitionOpen", "CompetitionNONE", "LogCompDistance", "CloseCompetitor", "PriorSales", "LogPriorSales")]
     write.csv(Pruned, paste(pwd, "dataModel_pruned_w2013.csv", sep=""))
     write.csv(Pruned[Pruned$YearFactor != 2013, ], paste(pwd, "dataModel_pruned.csv", sep=""))
     print("Done!")
@@ -188,11 +188,24 @@ addPromo2Flag <- function(dataTraining)
 addSeason <- function(dataTraining)
 {
     dataTraining$Season <- ""
+    
+    # specific holiday times
     dataTraining$Season[dataTraining$SchoolHoliday == 1 & (month(as.Date(dataTraining$Date)) == 12 | month(as.Date(dataTraining$Date)) == 1)] <- "Christmas_Break"
     dataTraining$Season[dataTraining$SchoolHoliday == 1 & (month(as.Date(dataTraining$Date)) == 3 | month(as.Date(dataTraining$Date)) == 4)] <- "Easter_Break"
     dataTraining$Season[dataTraining$SchoolHoliday == 1 & (month(as.Date(dataTraining$Date)) == 7 | month(as.Date(dataTraining$Date)) == 8 | month(as.Date(dataTraining$Date)) == 9)] <- "Summer_Break"
     dataTraining$Season[dataTraining$SchoolHoliday == 1 & month(as.Date(dataTraining$Date)) == 10 ] <- "Fall_Break"
-    dataTraining$Season[dataTraining$Season == "" & (month(as.Date(dataTraining$Date)) == 12 | month(as.Date(dataTraining$Date)) == 1 | month(as.Date(dataTraining$Date)) == 2)] <- "Winter"
+    
+    # super-specific dates
+    dataTraining[dataTraining$Date=="2013-12-23",]$Season="HolidayShopping_LastMin"
+    dataTraining[dataTraining$Date=="2014-12-23",]$Season="HolidayShopping_LastMin"
+    dataTraining[dataTraining$Date=="2013-12-24",]$Season="Christmas_Eve"
+    dataTraining[dataTraining$Date=="2014-12-24",]$Season="Christmas_Eve"
+    dataTraining[dataTraining$Date=="2013-12-31",]$Season="NYE"
+    dataTraining[dataTraining$Date=="2014-12-31",]$Season="NYE"    
+    
+    # filling in what's left
+    dataTraining$Season[dataTraining$Season == "" & month(as.Date(dataTraining$Date)) == 12] <- "Holiday_Shopping"
+    dataTraining$Season[dataTraining$Season == "" & (month(as.Date(dataTraining$Date)) == 1 | month(as.Date(dataTraining$Date)) == 2)] <- "Winter"
     dataTraining$Season[dataTraining$Season == "" & (month(as.Date(dataTraining$Date)) == 3 | month(as.Date(dataTraining$Date)) == 4 | month(as.Date(dataTraining$Date)) == 5)] <- "Spring"
     dataTraining$Season[dataTraining$Season == "" & (month(as.Date(dataTraining$Date)) == 6 | month(as.Date(dataTraining$Date)) == 7 | month(as.Date(dataTraining$Date)) == 8)] <- "Summer"
     dataTraining$Season[dataTraining$Season == "" & (month(as.Date(dataTraining$Date)) == 9 | month(as.Date(dataTraining$Date)) == 10 | month(as.Date(dataTraining$Date)) == 11)] <- "Fall"
@@ -201,7 +214,7 @@ addSeason <- function(dataTraining)
     dataTraining$SummerMonthDummy[ dataTraining$Season == "Summer" | dataTraining$Season == "Summer_Break" ] <- 1
     dataTraining$WinterMonthDummy <- 0 
     dataTraining$WinterMonthDummy[ dataTraining$Season == "Winter" | dataTraining$Season == "Christmas_Break" ] <- 1
-  
+    
     return(dataTraining)
 }
     
