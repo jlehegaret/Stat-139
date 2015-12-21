@@ -38,7 +38,16 @@ getFullData <- function(pwd)
     # add date-level derived data
     print("Adding date-level derived data")
     dataTraining <- addDateDerived(dataTraining, pwd)
-    dataTraining$LogSales <- log(dataTraining$Sales) 
+    dataTraining$LogSales <- log(dataTraining$Sales) # we already removed 0 values 
+
+    # and more
+    dataTraining$ID <- paste(dataTraining$Date, dataTraining$StoreFactor, sep="") # for graphs
+    dataTraining$PriorDailyAvg <- NA
+    dataTraining$PriorDailyAvg[dataTraining$YearFactor == 2014] <- dataTraining$DailyAvg_2013[dataTraining$YearFactor == 2014]
+    dataTraining$PriorDailyAvg[dataTraining$YearFactor == 2015] <- dataTraining$DailyAvg_2014[dataTraining$YearFactor == 2015]
+    dataTraining$LogPriorDailyAvg <- NA
+    dataTraining$LogPriorDailyAvg[dataTraining$YearFactor == 2014] <- dataTraining$LogDailyAvg_2013[dataTraining$YearFactor == 2014]
+    dataTraining$LogPriorDailyAvg[dataTraining$YearFactor == 2015] <- dataTraining$LogDailyAvg_2014[dataTraining$YearFactor == 2015]
     
     # export new files by given names
     
@@ -48,10 +57,10 @@ getFullData <- function(pwd)
     print("Exporting full Training data")
     write.csv(dataTraining, paste(pwd, "dataTraining_full.csv", sep=""))
     
-    print("Exporting pruned data")
-    Pruned <- dataTraining[ , c("StoreFactor", "LogSales", "Date", "YearFactor", "Month", "Season", "DayOfWeek_Named", "MonFri", "StateHolidayDummy", "StateHoliday", "SchoolHoliday", "SummerMonthDummy", "WinterMonthDummy", "SummerBoost", "SundayOpen", "SundayClosed" , "Reopened", "StoreType", "Assortment", "Promo", "Promo2Active" , "NumPromos", "CompetitionOpen", "CompetitionNONE", "LogCompDistance", "CloseCompetitor", "PriorSales", "LogPriorSales")]
-    write.csv(Pruned, paste(pwd, "dataModel_pruned_w2013.csv", sep=""))
-    write.csv(Pruned[Pruned$YearFactor != 2013, ], paste(pwd, "dataModel_pruned.csv", sep=""))
+    #print("Exporting pruned data")
+    #Pruned <- dataTraining[ , c("StoreFactor", "LogSales", "Date", "YearFactor", "Month", "Season", "DayOfWeek_Named", "MonFri", "StateHolidayDummy", "StateHoliday", "SchoolHoliday", "SummerMonthDummy", "WinterMonthDummy", "SummerBoost", "SundayOpen", "SundayClosed" , "Reopened", "StoreType", "Assortment", "Promo", "Promo2Active" , "NumPromos", "CompetitionOpen", "CompetitionNONE", "LogCompDistance", "CloseCompetitor", "PriorSales", "LogPriorSales")]
+    #write.csv(Pruned, paste(pwd, "dataModel_pruned_w2013.csv", sep=""))
+    #write.csv(Pruned[Pruned$YearFactor != 2013, ], paste(pwd, "dataModel_pruned.csv", sep=""))
     print("Done!")
 }
 
@@ -118,8 +127,10 @@ addStoreDerived <- function(dataStores, dataSales)
     dataStores$CloseCompetitor <- dataStores$CompetitionDistance < quantile(dataStores$CompetitionDistance, c(.1), na.rm = TRUE)
     
     # Average sales by store
-    # dataStores$AvgSales = tapply ( dataSales$Sales, dataSales$Store, FUN = mean )
-    # dataStores$LogAvgSales <- log( dataStores$AvgSales )
+    dataStores$DailyAvg_2013 = tapply ( dataSales$Sales[year(as.Date(dataSales$Date)) == 2013], dataSales$Store[year(as.Date(dataSales$Date)) == 2013], FUN = mean )
+    dataStores$LogDailyAvg_2013 <- log( dataStores$DailyAvg_2013 + 3)
+    dataStores$DailyAvg_2014 = tapply ( dataSales$Sales[year(as.Date(dataSales$Date)) == 2014], dataSales$Store[year(as.Date(dataSales$Date)) == 2014], FUN = mean )
+    dataStores$LogDailyAvg_2014 <- log( dataStores$DailyAvg_2014 + 3)
     
     # Determine which stores are seasonal stores (high summer sales)
     
@@ -151,7 +162,7 @@ addDateDerived <- function(dataTraining, pwd)
     print("Adding competition info")
     dataTraining <- addCompetitionFlag(dataTraining) #$CompetitionOpen
     dataTraining$CompetitionNONE <- abs(dataTraining$CompetitionOpen - 1)
-    dataTraining$CompetitionDistance <- dataTraining$CompetitionDistance + 1
+    dataTraining$CompetitionDistance <- dataTraining$CompetitionDistance + 3
     dataTraining$LogCompDistance <- log(dataTraining$CompetitionDistance)
     
     print("Adding promotion info")
@@ -202,6 +213,10 @@ addSeason <- function(dataTraining)
     dataTraining[dataTraining$Date=="2014-12-24",]$Season="Christmas_Eve"
     dataTraining[dataTraining$Date=="2013-12-31",]$Season="NYE"
     dataTraining[dataTraining$Date=="2014-12-31",]$Season="NYE"    
+    
+    # state holidays
+    dataTraining$Season[dataTraining$Season == "" & dataTraining$StateHoliday == "a"] <- "Public_Holiday"
+    dataTraining$Season[dataTraining$Season == "" & dataTraining$StateHoliday == "b"] <- "Easter_Holiday"
     
     # filling in what's left
     dataTraining$Season[dataTraining$Season == "" & month(as.Date(dataTraining$Date)) == 12] <- "Holiday_Shopping"

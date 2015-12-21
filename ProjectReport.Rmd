@@ -1,6 +1,6 @@
 ---
 title: "Stat E-139 Project Report"
-author: "**Stephen Camera-Murray, Desirée Koh,  \n  
+author: "**Stephen Camera-Murray, Desiree Koh,  \n  
            Jennifer Le Hégaret, Elizabeth Wilson-Milne**"
 date: "`r format(Sys.time(), '%B %d, %Y')`"
 output:
@@ -34,15 +34,13 @@ desired_data <- "dataTraining_full.csv"
 pwd <- "C:\\Users\\Jennifer\\Documents\\COURSES\\STAT_139_Modelling\\project\\Stat-139\\"
 
 #install.packages("lubridate")
-library (lubridate)
+library (lubridate) # date simplification
 #install.packages("lme4")
-library (lme4)
+library (lme4) # random effects
 #install.packages("ggplot2")
 library(ggplot2)
-#install.packages("moments")
-#library(moments)
 #install.packages("reshape2")
-library(reshape2)
+library(reshape2) # critical for "melting"
 #install.packages("MASS")
 library(MASS) # critical for the qqplots with lines!
 theme_set(theme_gray(base_size = 10))
@@ -60,58 +58,58 @@ if(!file.exists(paste(pwd, desired_data, sep="")))
 dataTraining <- read.csv(paste(pwd, desired_data, sep=""), header=T)
 dataTraining <- dataTraining[,-1] # remove row numbers
 dataTraining$YearFactor <- as.factor(dataTraining$YearFactor)
-dataTraining$ID <- paste(dataTraining$Date, dataTraining$StoreFactor, sep="") # for graphs
 ```
 
 # The Data
 
-The Rossmann data consisted of two files.  The first file contains store-level data such as:
+The Rossmann data consisted of two files which, together, provided information about 942 days of sales at 1,115 stores.  The first file contained store-level data such as:
 
 * Type of store (in terms of its "model" and its overall selection)
 * Information about the closest competitor (distance and longetivity)
 * Information about that store's particular promotion cycle
 
-The second file contains daily data for each store, such as:
+The second file contained daily data for each store for 2013, 2014, and the first part of 2015. This data consisted of items such as:
 
 * date (also noting that date's exact weekday, holiday status, and school holiday status)
 * whether or not that particular store was open that particular day
 * whether or not the store was running a promotion that day
 * sales amount and number of customers
 
-Our first step was to combine the two datasets into one flat file.  We also converted certain variables to strings and factors to prevent R from treating them as numerics.  Then, after using all of the data to derive the variables detailed in the next section, we removed the rows of "closed day" data.  After all, the stores consistently posted zero sales when closed, and our model is to predict sales when open.
+Our first step was to combine the two datasets into one flat file.  We also converted certain variables to strings and factors to prevent R from treating them as numerics.  Then, after using all of the data to derive all additional variables, we removed the rows of "closed day" data.  After all, the stores consistently posted zero sales when closed, and our model is to predict sales when open.
 
 ## Derived Data
 
-While the Rossman-provided data had a huge number of records, we saw the opportunity to add several more interesting columns of variables as well.  For example:
+While the Rossman-provided data had a huge number of records, we saw the opportunity to add several interesting columns.  For example:
 
 * We converted the rather esoterically-delivered promotion information to determine on exactly which days each store ran exactly how many promotions.
-* We analyzed the distribution of distance between stores and their nearest competitors, and derived a "Close Competitor" variable for those with the 10% nearest Competitors.
-* We analyzed which stores had summer sales that were at least 150% the level of winter sales, and hypothesized that these might be seasonal, coastally located stores deserving a special indicator variable we called "Summer Boost".
-* We noticed that some stores were completely closed for long stretches of time within our dataset, and hypothesized that perhaps, after a lengthy renovation, sales would increase due to a "buzz".  However, we made our "Reopened" dummy variable more subtle than that - it applied to a certain number of days after a store reopened, proportional to the amount of time a store had been closed.  Therefore, whether it was due to a huge renovation or just a long weekend which forced loyal clients to wait to restock their homes, "Reopened" would capture both possible boosts to sales.
-* We marked which stores were open on Sundays vs. the stores which were not
-* For the years of data after the first year of data, we added a month-by-month "PriorYearSales" variable (the average level of sales for that store in the same month but of the prior year).  As this involved then limiting our model to run on 2/3 of our data, and as some of the stores posted zero prior sales due to remodeling, this particular variable was not very popular within the team.
-* Most significantly, we analyzed the dates within our dataset and added several dummy and factor-level variables to distinguish some dates from others.  We combined the school calendar information with basic knowledge of the seasons to create a rather specific "Season" variable - some periods of time may fall under more generic factors such as "Spring", or "Fall Break" while other dates are as specific as "Christmas Eve".
+* We analyzed the distribution of distance between stores and their nearest competitors, and derived a _Close Competitor_ variable for those with the 10% nearest Competitors.
+* We analyzed which stores had summer sales that were at least 150% the level of winter sales, and hypothesized that these might be seasonal, coastally-located stores deserving a special indicator variable we called _Summer Boost_.
+* We noticed that some stores were completely closed for long stretches of time within our dataset, and hypothesized that perhaps, after a lengthy renovation, sales would increase due to a "buzz".  However, we made our _Reopened_ dummy variable even more subtle than that - it applied to a certain number of days after a store reopened, proportional to the amount of time a store had been closed.  Therefore, whether it was due to a huge renovation or just a long weekend which forced loyal clients to wait to restock their homes, _Reopened_ would capture both possible boosts to sales.
+* For the years of data after the first year of data, we added a year-to-year _Prior Daily Average_ variable that was a backwards look at each particular store's average daily sales in the prior calendar year.  However, as this then limited our model to run on two-thirds of our data, it was not very popular within the team.
+* Most significantly, we analyzed the dates within our dataset and added several dummy and factor-level variables to distinguish some dates from others.  We combined the school calendar information with basic knowledge of the seasons to create a rather specific _Season_ variable - some periods of time fall under relatively generic terms such as "Spring", or "Fall Break", while other dates are assigned a factor-level as specific as "Christmas Eve".
   
 _(Please see the appendix for the complete list of all variables, both original and derived.)_
 
 ## Checking the Independence Assumption
 
-Grossman's data observations consist of 942 days of sales for each of 1115 stores. As a result, many of the data points are clustered by store:
+As previously mentioned, Grossman's data observations cover 942 days of sales for 1,115 stores. As a result, many of the data points are clustered by store:
 
-``````{r, echo=FALSE, warning=FALSE, message=FALSE, fig.height = 3, eval=FALSE}
+``````{r, echo=FALSE, warning=FALSE, message=FALSE, eval=FALSE}
 
 dset <- dataTraining[dataTraining$StoreFactor %in% c("Store199", "Store251", "Store307") & dataTraining$Month == "April", ]
 
 vplot <- ggplot(data=dset, aes(x=Date, y=LogSales, color=factor(StoreFactor))) +  
     geom_point() + theme(legend.title=element_blank()) +
     labs(title = paste("Scatterplot of Log Sales\nFor Three Stores in April", sep=""))
-ggsave(file = paste("StoreClusters.png", sep=""))
+ggsave(file = paste("StoreClusters.png", sep=""), height = 3)
 ```
 ![plot](StoreClusters.png)
 
-Any linear model not taking this into account would have residuals that were not independent and so be invalid.  Therefore, we expanded our toolset to include a "random effects" model, as provided by the __lmer__ command in R's _lme4_ package.  Unlike R's more basic __lm__ approach, this model allows the predicted intercept for each store to vary, thereby "absorbing" the observed and unobserved differences between stores. In fact, it is even possible, with enough processing power, for a random effects model to allow the slopes of certain variables to vary by store as well.  
+Any linear model not taking this into account would have residuals that were not independent and so be invalid.  Therefore, we expanded our toolset to include a "random effects" model, as provided by the __lmer__ command in R's __lme4__ package.  Unlike R's more basic __lm__ approach, this model allows the predicted intercept for each store to vary, thereby "absorbing" the observed and unobserved differences between stores. In fact, it is even possible, with enough processing power, for a random effects model to allow the slopes of certain variables to vary by store as well.  
 
 Unfortunately for us, a full, varied-slope random effects model required more processing power than any of us had at our disposal. However, we found it reasonable to hope that even the basic, intercept-only, random effects model could overcome this violation of independence within our dataset.
+
+\newpage
 
 ## Checking the Normality Assumption
 
@@ -129,23 +127,21 @@ ggsave(file = paste("Normality.png", sep=""))
 ```
 ![plot](Normality.png)
 
-As mentioned before, our derived _Prior Sales_ variable could be determined only for the second year on of our data, and so the data set we can use to evaluate it is reduced.  Also, there were quite a number of zero-size outliers within this variable.  Sometimes these were clearly due to previous store closures, but the scale of the data prevented us from investigating each instance.  Given our plan to use a store-specific random effects model approach, we did not pursue this matter deeply, as we did not prioritize the use of this variable.  However, this variable as well, when used, benefits from a log transformation.
-
+As mentioned before, our _PriorDailyAverage_ variable applies only for the second year on of our data, as the first year's data becomes summary information.  Therefore, we look at that subset of data to evaluate this variable's normality, and again decide to perform a log transformation:  
+  
 ```{r, echo=FALSE, warning=FALSE, message=FALSE, eval=FALSE}
-dset <- subset(dataTraining, YearFactor %in% c(2014, 2015) & !is.nan(PriorSales) & PriorSales > 5, select=c(ID, PriorSales, LogPriorSales))
-dset <- melt(dset)
+dset <- subset(dataTraining, YearFactor %in% c(2014, 2015), select=c(ID, PriorDailyAvg, LogPriorDailyAvg))
+dset <- melt(dset, id.vars="ID")
 vplot <- ggplot(dset,aes(x = value)) + 
     facet_wrap(~variable, scales = "free", ncol=2) + 
     geom_histogram()
-ggsave(file = paste("Normality_PS.png", sep=""), height=3)
+ggsave(file = paste("Normality_PS.png", sep=""), height = 3)
 ```
 ![plot](Normality_PS.png)
 
-\newpage
-
 ## Checking the Linearity Assumption
 
-Next, we looked at scatterplots of our response variable, _LogSales_, against each of our quantitative predictor variables.  Happily, we did not see any evidence of nonlinearity:
+Next, we looked at scatterplots of our response variable, _LogSales_, against each of our quantitative predictor variables: the log of the distance to the closest competitor, the number of promotions at any one time, and the log of the prior year's average daily sales.  Happily, we did not see any evidence of nonlinearity:
 
 ```{r, echo=FALSE, warning=FALSE, message=FALSE, eval=FALSE}
 dset <- melt(dataTraining[ , c("LogSales", "LogCompDistance", "NumPromos")], id.vars = "LogSales")
@@ -158,141 +154,160 @@ ggsave(file = paste("Linearity.png", sep=""), height = 3)
 ![plot](Linearity.png)
 
 ```{r, echo=FALSE, warning=FALSE, message=FALSE, eval=FALSE}
-dset <- subset(dataTraining, YearFactor %in% c(2014, 2015) & !is.nan(PriorSales) & PriorSales > 5, select=c(LogSales, LogPriorSales))
-
-vplot <- ggplot(dset, aes(x=LogPriorSales, y=LogSales)) +  
+dset <- melt(subset(dataTraining, YearFactor %in% c(2014, 2015), select=c(LogSales, LogPriorDailyAvg)), id.vars = "LogSales")
+vplot <- ggplot(dset, aes(x=value, y=LogSales)) +  
     geom_jitter(alpha=0.05, position = position_jitter(width = 0.1))
 ggsave(file = paste("Linearity_PS.png", sep=""), height = 3)
 ```
 ![plot](Linearity_PS.png)
 
-
 ## Imagining Interaction Terms
 
 Even though we are not expert in the drugstore business, we knew we needed several interaction variables to allow for different slopes for certain variables under certain conditions.  For example, we needed to allow the summer season to have a different magnitude of effect if a store seemed to be a seasonal summer destination, compared to all of the other stores in Germany.  We needed to ensure that the distance from the closest competitor could only matter if that competitor was already open for business.  
 
-Although we didn't know much about the store type that was given to us in the data set, we made the assumption that it represented a significant difference between the stores. Based on that assumption, we tried adding "StoreType" as an interaction term to several of the available independent variables. 
+Although we imagined many more interaction terms as well, we unfortunately ran into the limits of our processing power rather quickly with these models.  As a result, we made do with the two mentioned above. 
 
 # Creating the Model
 
 ## Process
 
-Once we had all of our variables in place, we created a __baseline model__ with only Kaggle-provided data.  Then, we created a __full model__, which could potentially include all of our contributed variables and interaction terms as well (if R found them significant).
-
-\newpage
+Once we had all of our variables in place, we created the simplest __baseline model__ we could imagine.  Then, we created a __full model__, which was allowed to include all of our contributed variables and interaction terms as well.  Lastly, we compared the two in terms in terms of prediction and reliability.
 
 ## Baseline Model
 
-To create our baseline model, allowing for each store to have a different intercept, we used the R code
+The simplest baseline model we could imagine is that each store continues to have sales at the same rate as in the prior year, as based on the prior year's daily average.  Given our data, of course, we deal with log values for these variables:
 
-```{r, warning=FALSE, message=FALSE}
-baseline <- lmer( LogSales ~ Month + YearFactor + DayOfWeek_Named + Promo + StateHoliday + SchoolHoliday + StoreType + Assortment + CompetitionOpen + LogCompDistance + Promo2Active + (1|Store), data = dataTraining)
-```
-to derive this model:
+$LogSales = \beta_0 + \beta_1 LogPriorDailyAverage$, where $\beta_0 = 0$ and $\beta_1 = 1$.
 
-THIS WILL BECOME THE LATEX EQUATION INSTEAD, RIGHT?  AND WE DIRECT THE READER TO THE APPENDIX FOR THE FULL SUMMARY?
-
-```{r, warning=FALSE, message=FALSE, echo=FALSE}
-summary(baseline)
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+dumb <- dataTraining[dataTraining$YearFactor != 2013, c("StoreFactor", "LogSales", "LogPriorDailyAvg")]
+dumb$dumbest_resid <- dumb$LogSales - dumb$LogPriorDailyAvg
 ```
 
-_(Please see the appendix for the complete summary of the baseline model.)_
+When we run this model against our data for (only) the years 2014 and 2015, we find that the standard error of the residuals is `r sd(dumb$dumbest_resid)` and our residuals range from `r range(dumb$dumbest_resid)[1]` to `r range(dumb$dumbest_resid)[2]`.  
 
-## Analysis of Baseline Model
-
-Overall, the standard error of the residuals is about 0.2 and our residuals vary considerably (as the scaled residuals range from -23.83 to 10.3494).  This is not surprising as, given the number of observations being considered, there are bound to be a few extreme values.    
-
-If our model is valid, then we should observe normality of the residuals, constant variance of the residuals, and linearity between the residuals and the fitted values.
+If our model is valid, then we should observe normality of the residuals, constant variance of the residuals, and linearity between the residuals and the fitted values, and these assumptions should hold true both overall and at the store-specific level.
 
 ```{r, echo=FALSE, warning=FALSE, message=FALSE, eval=FALSE}
-ER_fortified <- ggplot2::fortify(baseline)
-
-vplot <- ggplot(ER_fortified, aes(sample = .resid)) + 
+vplot <- ggplot(dumb, aes(sample = dumbest_resid)) + 
     stat_qq() + 
-    geom_abline(aes(intercept = mean(.resid), slope = sd(.resid)), data = ER_fortified) +
-    labs(title="QQ Plot for residuals\nof baseline model")
-ggsave(file = paste("Baseline_QQ.png", sep=""), height=3, width=3)
+    geom_abline(aes(intercept = mean(dumbest_resid), slope = sd(dumbest_resid)), data = dumb) +
+    labs(title="Baseline Model\nResidual QQ Plot")
+ggsave(file = paste("Dumbest_QQ.png", sep=""), height=3, width=3)
 
-vplot <- ggplot(ggplot2::fortify(baseline), aes(.fitted, .resid)) + 
-    geom_point() + stat_smooth() + 
-    labs(title="Residual Plot for\nour baseline model")
-ggsave(file = paste("Baseline_ResidFit.png", sep=""), height=3, width=3)
+vplot <- ggplot(dumb, aes(LogPriorDailyAvg, dumbest_resid)) + 
+    geom_point(alpha=.05) + stat_smooth() + 
+    labs(title="Baseline Model\nResidual Plot")
+ggsave(file = paste("Dumbest_ResidFit.png", sep=""), height=3, width=3)
 ```
-![plot](Baseline_QQ.png) ![plot](Baseline_ResidFit.png)
+![plot](Dumbest_QQ.png) ![plot](Dumbest_ResidFit.png)
 
-The above plots show our overall residuals for the entire model.  From the normal QQ plot, it is clear that overall residuals are not perfectly normal.  However, they do seem to be somewhat symmetric and, within 2 standard deviations of the mean (which encompasses `r 1 - 40000/844338` of the data), residuals are exactly normal. This seems quite acceptable. Also, the residual plot of our residuals to fitted values looks like a wonderfully even cloud.  We have a very flat, linear line to describe the relationship, and we see no evidence of "fanning out".
-
-Unfortunately, when we review residuals at the store level, we fail to verify our assumptions.  As the following plots reveal, our residuals form a suspicious pattern.
+The above plots show our overall residuals for the entire model.  The below plots highlight store-specific residuals for three representative stores:
 
 ```{r, echo=FALSE, warning=FALSE, message=FALSE, eval=FALSE}
-dset <- subset(dataTraining, select="StoreFactor")
-dset$predict <- fitted(baseline)
-dset$resid <- resid(baseline)
-dset <- dset[which(dset$Store %in% c("Store199", "Store251", "Store307")), ]
-#dset <- dset[which(dset$Store %in% c("Store19", "Store25", "Store30")), ]
-vplot <- ggplot(dset, aes(sample = resid)) + 
-    stat_qq() + 
-    geom_abline(aes(intercept = mean(resid), slope = sd(resid)), data = dset) +
-    labs(title="QQ Plot for residuals\nof baseline model with 3 stores")
-ggsave(file = paste("Baseline_QQ_3Store.png", sep=""), width=3, height=3)
+dumb <- dumb[which(dumb$Store %in% c("Store199", "Store251", "Store307")), ]
+vplot <- ggplot(dumb, aes(sample = dumbest_resid, color=factor(StoreFactor))) + 
+    stat_qq() + theme(legend.position="none") +
+    geom_abline(aes(intercept = mean(dumbest_resid), slope = sd(dumbest_resid)), data = dumb) +
+    labs(title="Baseline Model\nResidual QQ Plot, 3 stores")
+ggsave(file = paste("Dumbest_QQ_3Store.png", sep=""), height=3, width=3)
 
-vplot <- ggplot(dset, aes(x=predict, y=resid, color=factor(StoreFactor))) + 
-    geom_point() + theme(legend.position="none") +
-    labs(title="Residual Plot for\nour baseline model with 3 stores")
-ggsave(file = paste("Baseline_ResidFit_3Store.png", sep=""), width=3, height=3)
+vplot <- ggplot(dumb, aes(LogPriorDailyAvg, dumbest_resid, color=factor(StoreFactor))) + 
+    geom_point(alpha=.05) + theme(legend.position="none") +
+    labs(title="Baseline Model\nResidual Plot, 3 stores")
+ggsave(file = paste("Dumbest_ResidFit_3Store.png", sep=""), height=3, width=3)
 ```
-![plot](Baseline_QQ_3Store.png) ![plot](Baseline_ResidFit_3Store.png)
 
-While the residuals are normal, they seem highly nonlinear and heteroskedacistic, fanning out on both ends.
+![plot](Dumbest_QQ_3Store.png) ![plot](Dumbest_ResidFit_3Store.png)
 
-WHAT COULD BE BEHIND THIS, WHAT DOES IT MEAN FOR THE MODEL?
+\newpage
 
+Overall, our residuals are somewhat right-skewed.  This means that this simple model tends to underpredict daily sales at each store as based on last year's average sales -- and perhaps this could be attributed to simple inflation. Looking at the residual plot, we see that our residuals do seem to show constant variance in a nicely even random cloud formation. As the cloud follows a perfectly flat line around zero, we see no evidence of non-linearity.  
+
+While the QQ Plot of the small subset of data for three specific stores shows greater departures from normality per-store, each store is different and still reasonably close to the line.  The Residual Plot is interesting:  each store does seem to have its own level of variance around the mean, and one store seems to tend to be underpredicted while another store tends to be overpredicted.
+
+These assumption checks did not have perfect results.  Instead, they confirmed that we should apply a store-specific random effects model to predict sales at the various Rossman stores across Germany. 
 
 ## Full Model
 
-To create our full random effects model, we first needed to identify a subset of all of our derived data and interaction terms of those which seemed truly to have some weight in explaining sales.  
+To create our full random effects model, we first identified the subset of variables which had weight in explaining sales by running a simple __lm__ model on the average prior daily average (as used in our baseline model), plus many others:
 
-SO, RANDOM EFFECTS DOESN'T DO STEPWISE?
+* factor variables for the year, the day of the week, and our extensively-specific _Season_ variable, 
+* factor variables about the type of store and the type of selection of goods it offers,
+* indicator variables for summer seasonality, stores that were regularly open on Sundays, stores that had recently reopened after a relatively lengthy period of time,
+* indicator and quantitative variables about how many promotions the store ran each day, and the type of promotion, and
+* an interaction term about the existence of competition combined with the distance from that competition, and an indicator term about whether or not this store was "extra close" to its competition.
+                
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+dataTraining$Interact_SummerBoost <- dataTraining$SummerMonthDummy * dataTraining$SummerBoost
+dataTraining$Interact_Competitor <- dataTraining$CompetitionOpen * dataTraining$LogCompDistance
 
-Therfore, we first allowed R to perform a backwards stepwise linear regression model creation process within a simple linear model that included all of our derived data and proposed interaction terms.  At each step, R removed the predictor with the highest p-value until all predictors were significant at the 95% confidence level.  
+full <- dataTraining[dataTraining$YearFactor != 2013, c("LogSales", "YearFactor", "Season", 
+                "DayOfWeek_Named", "Interact_SummerBoost", "SundayOpen", "Reopened", 
+                "StoreType", "Assortment", "Promo", "Promo2Active" , "NumPromos", 
+                "Interact_Competitor", "CloseCompetitor", "LogPriorDailyAvg")]
 
-OR, WE COULD HAVE USED AIC TO DECIDE WHICH VARIABLES TO KEEP.
+pick_vars <- lm(full)
+#summary(pick_vars)
 
-```{r, warning=FALSE, message=FALSE, eval=FALSE}
-pick_vars <- lm( LogSales ~ WHAT VARIABLES EXACTLY????, data = dataTraining)
+full <- dataTraining[dataTraining$YearFactor != 2013, c("LogSales", "StoreFactor", 
+        "YearFactor", "Season", "DayOfWeek_Named", "Interact_SummerBoost", "SundayOpen", 
+        "StoreType", "Assortment", "Promo", "Interact_Competitor", "CloseCompetitor", 
+        "LogPriorDailyAvg")]
+
 ```
 
-Armed with this selected list of varibles, we then used the R code
+The results of our basic model helped us to weed out a few promotion-oriented variables as well as _Reopened_.  The code for our final model was thus
 
 ```{r, warning=FALSE, message=FALSE}
-final <-  lmer ( LogSales ~ SummerMonthDummy*SummerBoost + Assortment*StoreType 
-                     + YearFactor + Month + Season + DayOfWeek_Named
-                     + StateHolidayDummy + LogCompDistance*CompetitionOpen
-                     + SchoolHoliday + SummerMonthDummy + SummerBoost
-                     + SundayOpen + StoreType + Assortment + NumPromos                     
-                     + Promo + Promo2Active + CompetitionNONE + CloseCompetitor
-                     + (1|StoreFactor), data = dataTraining )
+final <-  lmer ( LogSales ~ YearFactor + Season + DayOfWeek_Named + Interact_SummerBoost + 
+                     SundayOpen + StoreType + Assortment + Promo + Interact_Competitor + 
+                     CloseCompetitor + LogPriorDailyAvg + (1|StoreFactor), data = full )
+
 ```
-
-to derive this model:
-
-THIS WILL BECOME THE LATEX EQUATION INSTEAD, RIGHT?  AND WE DIRECT THE READER TO THE APPENDIX FOR THE FULL SUMMARY?
-
-```{r, warning=FALSE, message=FALSE, echo=FALSE}
+```{r, warning=FALSE, message=FALSE, echo=FALSE, eval=FALSE}
 summary(final)
 ```
- 
-_(Please see the appendix for the complete summary of the full model.)_
 
-## Analysis of Full Model 
+which results in the following equation:
 
-### Interpretation of Coefficients
+\newpage
 
-XXX
+_Log Sales_ = 5.02 + .43 _Log Prior Avg Sales_ - .10 _Open Sunday_ + .05 _Close Competitor_
+                - .01 _Competitor Distance_ + .43 _Summer Boost_ + .34 _Promo_ 
+                + .01 $Year_{2015}$ + ... 
+
+|_Store Type_|_Assortment_| _Day of Week_    | _Season_                           |
+|:-----------|:-----------|:-----------------|:-----------------------------------|
+|  a: 0.00   | a:  0.00   | Monday:     0.11 | Easter Holiday:               0.28 |
+|  b: 0.44   | b: -0.09   | Tuesday:   -0.01 | Easter Break:                -0.07 |
+|  c: 0.01   | c:  0.09   | Wednesday: -0.06 | Spring:                      -0.15 |
+|  d: 0.02   |            | Thursday:  -0.06 | Summer:                      -0.14 |
+|            |            | Friday:     0.00 | Summer Break:                -0.17 |
+|            |            | Saturday:  -0.05 | Fall:                        -0.15 |
+|            |            | Sunday:    -0.11 | Fall Break:                  -0.20 |
+|            |            |                  | Holiday Shopping:             0.05 |
+|            |            |                  | Christmas Break:             0.00 |
+|            |            |                  | Last Minute Holiday Shopping:  0.54 |
+|            |            |                  | Christmas Eve:              -0.27 |
+|            |            |                  | New Year's Eve:             -0.45 |
+|            |            |                  | Public Holiday:             -0.21 |
+
+Satisfyingly, these coefficients all make intuitive sense. Some specific observations:
+
+* It is interesting to see what a huge magnitude of an effect merely the day of the week and the season have on a store's sales - competition, the assortment of goods the store offers, and the type of store it is (most of the time) hardly matter in comparison.
+* December and the resulting school vacation, apart from New Year's Eve, are extremely huge drivers of the entire year's sales.  Other than that, only actual observed Easter holiday (and not the school's Easter-time break) manages to tax the store's capacity. 
+* Shoppers do respond to the store's primary promotion!
+* Being open on Sundays does not end up benefiting the bottom line by much - if a store is open on Sundays, all of its other days are slightly depressed as an effect, and, on top of that, the Sunday itself is still relatively quiet.
+* Our hypothesis that close competion might actually boost sales is held up - we had posited that clusters of similar stores can attract more shoppers, and we see that having a close competitor does indeed boost sales.  The coefficient on _Competitor Distance_ is slightly ambiguous - do sales go down the farther away the competitor is, or is that that sales went down a bit because this store does actually have a competitor?
+
+_(Please see the appendix for the complete coefficients table.)_
+
+\newpage
 
 ### Assumptions Check
 
-Overall, a check of residuals shows us:
+First, we will check the overall residuals of the model as a whole:
 
 ```{r, echo=FALSE, warning=FALSE, message=FALSE, eval=FALSE}
 ER_fortified <- ggplot2::fortify(final)
@@ -303,39 +318,71 @@ vplot <- ggplot(ER_fortified, aes(sample = .resid)) +
     labs(title="QQ Plot for residuals\nof final model")
 ggsave(file = paste("Final_QQ.png", sep=""), height=3, width=3)
 
-vplot <- ggplot(ggplot2::fortify(baseline), aes(.fitted, .resid)) + 
-    geom_point() + stat_smooth() + 
+vplot <- ggplot(ggplot2::fortify(final), aes(.fitted, .resid)) + 
+    geom_point(alpha=.05) + stat_smooth() + 
     labs(title="Residual Plot for\nour final model")
 ggsave(file = paste("Final_ResidFit.png", sep=""), height=3, width=3)
 ```
 ![plot](Final_QQ.png) ![plot](Final_ResidFit.png)
 
-Checking at the store-level, we see:
+Unfortunately, in the QQ Plot, we see that our residuals are still right-skewed rather than normal.  Now that we have the year factor in our model, we cannot write this off as a failure to account for inflation year-to-year.  We also see a suspicious curve within the Residual Plot - while the overall shape is a nice cloud, and the line is quite close to zero, there is a slight arc to it that indicates nonlinearity.  We are not confident that we can confirm our assumptions.
+
+Checking the same three stores we had used before as a representative sample, we see a suspicious pattern:
 
 ```{r, echo=FALSE, warning=FALSE, message=FALSE, eval=FALSE}
-dset <- subset(dataTraining, select="StoreFactor")
+dset <- subset(full, select="StoreFactor")
 dset$predict <- fitted(final)
 dset$resid <- resid(final)
 dset <- dset[which(dset$Store %in% c("Store199", "Store251", "Store307")), ]
 #dset <- dset[which(dset$Store %in% c("Store19", "Store25", "Store30")), ]
-vplot <- ggplot(dset, aes(sample = resid)) + 
-    stat_qq() + 
+vplot <- ggplot(dset, aes(sample = resid, color=factor(StoreFactor))) + 
+    stat_qq() + theme(legend.position="none") + 
     geom_abline(aes(intercept = mean(resid), slope = sd(resid)), data = dset) +
     labs(title="QQ Plot for residuals\nof final model with 3 stores")
 ggsave(file = paste("Final_QQ_3Store.png", sep=""), width=3, height=3)
 
 vplot <- ggplot(dset, aes(x=predict, y=resid, color=factor(StoreFactor))) + 
-    geom_point() + theme(legend.position="none") +
+    geom_point(alpha=.1) + theme(legend.position="none") 
     labs(title="Residual Plot for\nour final model with 3 stores")
 ggsave(file = paste("Final_ResidFit_3Store.png", sep=""), width=3, height=3)
 ```
 ![plot](Final_QQ_3Store.png) ![plot](Final_ResidFit_3Store.png)
 
-Again, we see that, while overall our assumptions checks looks promising, linearity is violated at the store-level.
+While the residuals seem to have somewhat improved normality, as compared to the baseline model, they seem highly nonlinear, as they have a per-store "U-Shape" rather than a cloud.
+
+What lies behind this?  Remembering our regression model, there are many indicator values contained within it.  Sales vary per store quite dramatically by day and by season.  Perhaps this is why the predicted values per store tend to group at different discrete amounts, rather than forming an even cloud.  What about the variance?  For these three stores, it seems that the variance of the lower predictions is usually greater than the variance of higher predictions.  Is this true for all stores?  
+
+We randomly sampled twenty more stores to see:
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE, eval=FALSE}
+dset <- subset(full, select="StoreFactor")
+dset$predict <- fitted(final)
+dset$resid <- resid(final)
+dset <- dset[dset$Store %in% c("Store912", "Store207", "Store142", "Store859", "Store463", "Store71", "", "Store648", "Store975", "Store686", "Store97", "Store551", "Store417", "Store531", "Store470", "Store1033", "Store348", "Store754", "Store1092", "Store1081", "Store433"), ]
+
+vplot <- ggplot(dset, aes(x=predict, y=resid, color=factor(StoreFactor))) + 
+    facet_wrap(~StoreFactor, scales = "free_x", ncol=4) + stat_smooth() + 
+    geom_point(alpha=.1) + theme(legend.position="none") +
+    labs(title="Residual Plots for 20 randomly selected stores")
+ggsave(file = paste("Final_ResidFit_20Stores.png", sep=""))
+```
+![plot](Final_ResidFit_20Stores.png)
+
+Happily, we see that every store is indeed different when it comes to the distribution of its residuals and that, overall, the stores' residuals are linear and with a constant variance around the zero line.  
+
+Taking the two views together, we conclude that the assumptions of linear regression seem to hold more than not.  However, we also see that a fuller random effects model may be truly useful - some of the stores' density lines do have slight slopes up or down, so that different store-specific slopes for at least some of the variables in our model might be appropriate.
 
 ### Performance as Compared to Baseline
 
-To evaluate the final model we compare the residual standard error (s^) of the baseline model to the final model. From the R summary of the baseline model we find $\sigma_{baseline}$ = 0.1999 and for the final model $\sigma_{final}$ = 0.1937. The final model has a lower $\sigma^2$, benefiting slightly from the additional variables and interaction.
+We compared our final model to our baseline in a number of ways:
+
+* Residual Standar Error
+* R-squared
+* Adjusted R-Squared
+* AIC
+* SSE
+
+To evaluate the final model we compare the residual standard error (s^) of the baseline model to the final model. From the R summary of the baseline model we find $\sigma_{baseline}$ = XXX and for the final model $\sigma_{final}$ = XXX. The final model has a lower $\sigma^2$, benefiting slightly from the additional variables and interaction.
 
 # Summary
 
@@ -345,21 +392,19 @@ XXX
 
 Outliers(or other appropriate name)
 
-The baseline model has a few extreme outliers that no doubt impact our model and potentially could improve the some of the concerning patterns in our by store residual plots.  Due to the size of the dataset, we were unable to investigate all outliers thoroughly.  Some of the most extreme outliers in both the baseline model and the model we develop are not as clearly explained and possibly can be attributed to factors outside the scope of the provided dataset.
+The baseline model has a few extreme outliers that no doubt impact our model and potentially could improve the some of the concerning patterns in our by store residual plots.  Due to the size of the dataset, we were unable to investigate all outliers thoroughly.  
 
 Discussion of how we did find the Christmas Eve effect.
-
-Using a mixed-effect linear regression model can give Rossmann a single corporate-wide tool to predict daily sales by store in order to effectively staff and restock stores.  In the simple form explored here, allowing only for our model's intercept to vary by store while keeping the impact of our other predictors the same for all stores, we focused on variables that would allow the model to detect differences not only by store, but seasonally and daily as well.  The most significant predictors, in addition to adding store as a random effect, are exactly those that help highlight variability overtime including month and day of the week.  Further, our categorical variable Season (which attempts to track trends over a course of a year including season, school breaks and specific days of interest including Christmas Eve) and our added interaction variables provide our most significant improvements over the baseline model.  As noted above, our model (anything else guys?)...
 
 In fact, the large data set and number of predictors proved to be an issue for most of our inquiry. from trying to set up prediction intervals to attempting to identify which stores are being modeled well and which might need further attention, we were unable to apply many of the techniques that might work well on a smaller scale model.  Simply setting up the data for use took a significant portion of the project. [other issues you all had?]
 
 ## Conclusion
 
-While we were able to explore many aspects of model building, the final model can not be used to make economically sound decisions for all Rossmann stores.  One clear improvement to the model might be to let the impact of our fixed effects vary by store.  For example, it is likely that the average increase is sales observed on Mondays is not the same across all stores.  If we were to let the slope vary by store for the day of the week, we would likely see improved results.  However, the size of the data set and number of predictors limited our ability to test more than a few models with varying store intercepts and, unfortunately, no model that allowed for the slope of one of our predictors to vary by store could fully execute.  With sufficient memory, it would be informative to see how accurate the model would be if all of the fixed effects were able to vary across store. 
+While we were able to explore many aspects of model building, the final model cannot actually be used to make economically-sound decisions for all Rossmann stores.  One clear improvement to the model might be to let the impact of our fixed effects vary by store.  For example, it is likely that the average increase is sales observed on Mondays is not the same across all stores. 
 
-In addition, assumptions violations persist in our model.  While our only continuous variables have been transformed (sales and competition distance) to be largely symmetrical, and the overall residuals vs. fitted plot is approximately football shaped, the same graphs for individual stores continue to follow a rough U-pattern (or two distinct grouping of residuals).  This suggests low predictions and high predictions are being divided into two distinct groups by our model.  We were unable to determine why this might be but one thought is that the large amount of indicator variables are somehow splitting up predictions into two camps.  If this is the case, alternate approaches to modeling are likely required.
+In addition, assumptions violations persist in our model. 
 
-While our model is certainly able to predict sales taking into account the large variation in store size and seasonal variability, problems with the size of the dataset, inability to address all assumptions violations, the abundance of indicator variables lead to the conclusion that linear regression using R is not the best approach to making accurate predictions in this situation.  In all, the shortcomings of the current project provide many opportunities for further inquiry.
+the shortcomings of the current project provide many opportunities for further inquiry.
 
 # A Fun Aside: The Kaggle Process
 
@@ -381,24 +426,6 @@ WILL TRY AGAIN AT COPY / PASTE TO MAKE CONVERSION TO R MARKDOWN EASIER
 
 \newpage
 
-## Coefficient Table, Baseline Model
-
-```{r, echo=FALSE}
-summary(baseline)
-```
-
-### Commentary on Baseline Model 
-
-DO WE REALLY WANT TO INCLUDE THIS ANALYSIS, OR DO WE JUST INCLUDE THE ONE FOR OUR FINAL MODEL?
-
-The mean log sales, not taking into account store level difference, is 8.758.  Because a majority of the predictors are categorical or indicator variables the effect of each of these are included in the fixed effect model intercept of 8.746.  It can be interpreted as the average log sales of a store type a, selling assortment a, with no promotions active and no holidays on a Friday in April, 2013.  Without promotions, it makes sense that a store with these characteristics would have a lower average than the dataset overall.  
-
-Now looking at store level models, the fixed effect coefficients will not change but the intercepts will.  For store 199, we see the intercept is 8.746+0.199=8.945 while for store 307, the intercept is 8.746-0.790=7.956.  Reviewing store level data might reveal part of the reason for these differences.  The two stores are of different structures (store type and assortment), their competition is quite different and one does not run long term promotions while the other does.   
-
-In reviewing month as an example of the fixed effects, the model shows that holding all other variables constant, log sales in December are predicted to be 0.2087 higher than in April and 0.047 lower in September for each store in our model.  On the original scale, this means the median sales in December are 1.23 times higher than median sales in April holding other variables constant. 95% confidence intervals around all of the fixed effect slope estimates, reveal that month, year, the day of the week, running promotions, the type of store and assortment sold as well as the competition all play a significant role in estimating log sales for these stores.  
-
-\newpage
-
 ## Coefficient Table, Full Model
 
 ```{r, echo=FALSE}
@@ -412,6 +439,8 @@ summary(final)
 The following module contains the code we used to transform our data:
 
 ```{r, eval=FALSE}
+
+##########################################
 
 # This module provides the functions we need to 
 #    obtain our data,
@@ -444,7 +473,16 @@ getFullData <- function(pwd)
     # add date-level derived data
     print("Adding date-level derived data")
     dataTraining <- addDateDerived(dataTraining, pwd)
-    dataTraining$LogSales <- log(dataTraining$Sales) 
+    dataTraining$LogSales <- log(dataTraining$Sales) # we already removed 0 values 
+
+    # and more
+    dataTraining$ID <- paste(dataTraining$Date, dataTraining$StoreFactor, sep="") # for graphs
+    dataTraining$PriorDailyAvg <- NA
+    dataTraining$PriorDailyAvg[dataTraining$YearFactor == 2014] <- dataTraining$DailyAvg_2013[dataTraining$YearFactor == 2014]
+    dataTraining$PriorDailyAvg[dataTraining$YearFactor == 2015] <- dataTraining$DailyAvg_2014[dataTraining$YearFactor == 2015]
+    dataTraining$LogPriorDailyAvg <- NA
+    dataTraining$LogPriorDailyAvg[dataTraining$YearFactor == 2014] <- dataTraining$LogDailyAvg_2013[dataTraining$YearFactor == 2014]
+    dataTraining$LogPriorDailyAvg[dataTraining$YearFactor == 2015] <- dataTraining$LogDailyAvg_2014[dataTraining$YearFactor == 2015]
     
     # export new files by given names
     
@@ -453,7 +491,11 @@ getFullData <- function(pwd)
     
     print("Exporting full Training data")
     write.csv(dataTraining, paste(pwd, "dataTraining_full.csv", sep=""))
-
+    
+    #print("Exporting pruned data")
+    #Pruned <- dataTraining[ , c("StoreFactor", "LogSales", "Date", "YearFactor", "Month", "Season", "DayOfWeek_Named", "MonFri", "StateHolidayDummy", "StateHoliday", "SchoolHoliday", "SummerMonthDummy", "WinterMonthDummy", "SummerBoost", "SundayOpen", "SundayClosed" , "Reopened", "StoreType", "Assortment", "Promo", "Promo2Active" , "NumPromos", "CompetitionOpen", "CompetitionNONE", "LogCompDistance", "CloseCompetitor", "PriorSales", "LogPriorSales")]
+    #write.csv(Pruned, paste(pwd, "dataModel_pruned_w2013.csv", sep=""))
+    #write.csv(Pruned[Pruned$YearFactor != 2013, ], paste(pwd, "dataModel_pruned.csv", sep=""))
     print("Done!")
 }
 
@@ -474,8 +516,10 @@ addStoreDerived <- function(dataStores, dataSales)
     dataStores$CloseCompetitor <- dataStores$CompetitionDistance < quantile(dataStores$CompetitionDistance, c(.1), na.rm = TRUE)
     
     # Average sales by store
-    # dataStores$AvgSales = tapply ( dataSales$Sales, dataSales$Store, FUN = mean )
-    # dataStores$LogAvgSales <- log( dataStores$AvgSales )
+    dataStores$DailyAvg_2013 = tapply ( dataSales$Sales[year(as.Date(dataSales$Date)) == 2013], dataSales$Store[year(as.Date(dataSales$Date)) == 2013], FUN = mean )
+    dataStores$LogDailyAvg_2013 <- log( dataStores$DailyAvg_2013 + 3)
+    dataStores$DailyAvg_2014 = tapply ( dataSales$Sales[year(as.Date(dataSales$Date)) == 2014], dataSales$Store[year(as.Date(dataSales$Date)) == 2014], FUN = mean )
+    dataStores$LogDailyAvg_2014 <- log( dataStores$DailyAvg_2014 + 3)
     
     # Determine which stores are seasonal stores (high summer sales)
     
@@ -507,7 +551,7 @@ addDateDerived <- function(dataTraining, pwd)
     print("Adding competition info")
     dataTraining <- addCompetitionFlag(dataTraining) #$CompetitionOpen
     dataTraining$CompetitionNONE <- abs(dataTraining$CompetitionOpen - 1)
-    dataTraining$CompetitionDistance <- dataTraining$CompetitionDistance + 1
+    dataTraining$CompetitionDistance <- dataTraining$CompetitionDistance + 3
     dataTraining$LogCompDistance <- log(dataTraining$CompetitionDistance)
     
     print("Adding promotion info")
@@ -558,6 +602,10 @@ addSeason <- function(dataTraining)
     dataTraining[dataTraining$Date=="2014-12-24",]$Season="Christmas_Eve"
     dataTraining[dataTraining$Date=="2013-12-31",]$Season="NYE"
     dataTraining[dataTraining$Date=="2014-12-31",]$Season="NYE"    
+    
+    # state holidays
+    dataTraining$Season[dataTraining$Season == "" & dataTraining$StateHoliday == "a"] <- "Public_Holiday"
+    dataTraining$Season[dataTraining$Season == "" & dataTraining$StateHoliday == "b"] <- "Easter_Holiday"
     
     # filling in what's left
     dataTraining$Season[dataTraining$Season == "" & month(as.Date(dataTraining$Date)) == 12] <- "Holiday_Shopping"
@@ -675,5 +723,6 @@ makeSalesFile <- function(pwd)
     
     write.csv(Melted[ ,c("PriorSalesKey", "PriorSales")], paste(pwd, "data_PriorSales.csv", sep=""))
 }
+
 
 ```
